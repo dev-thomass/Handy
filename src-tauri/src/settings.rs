@@ -1,3 +1,4 @@
+use crate::utils;
 use log::{debug, warn};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -1280,10 +1281,12 @@ fn apply_settings_migrations(
 /// `HANDY_DISABLE_UPDATER` is set — e.g. by the Nix package, since self-update
 /// can't work against an immutable /nix/store install.
 ///
-/// Wisprfree always forces them off: it has no update feed of its own yet, and
-/// the configured feed is upstream Handy's, which would replace this fork.
+/// Wisprfree's updater feed is the fork's own signed releases
+/// (dev-thomass/Handy), never upstream Handy's.
 pub fn update_checks_forced_disabled() -> bool {
-    true
+    use std::sync::OnceLock;
+    static IS_UPDATER_DISABLED: OnceLock<bool> = OnceLock::new();
+    *IS_UPDATER_DISABLED.get_or_init(|| utils::env_flag_enabled("HANDY_DISABLE_UPDATER"))
 }
 
 /// Effective updater state: the user's stored preference, overridden to `false`

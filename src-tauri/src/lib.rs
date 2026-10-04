@@ -253,7 +253,7 @@ fn initialize_core_logic(app_handle: &AppHandle) {
             )
             .unwrap(),
         )
-        .tooltip(tray::tray_tooltip())
+        .tooltip(tray::tray_tooltip(app_handle))
         .icon_as_template(true);
 
     // Windows notification-area convention: left click opens the app, right click
