@@ -754,7 +754,17 @@
   "overlay": {
     "transcribing": "Transcriberen...",
     "processing": "Verwerken...",
-    "learned": "Learned “{{word}}”"
+    "notice": {
+      "learned": "Learned “{{word}}”",
+      "copiedNoField": "No text field: copied, paste with ⌘V",
+      "pasteFailedCopied": "Couldn't paste: copied, paste with ⌘V",
+      "pasteFailed": "Couldn't paste. Click for details",
+      "transcriptionFailed": "Transcription failed. Click for details",
+      "micDenied": "Microphone blocked: allow it in System Settings",
+      "noMic": "No microphone found",
+      "recordingFailed": "Couldn't record. Click for details",
+      "modelFailed": "Couldn't load {{model}}"
+    }
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} blokkeert mogelijk 1 sneltoets",

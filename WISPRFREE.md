@@ -31,6 +31,10 @@ Tu associes un prompt à une app : `slack|discord` → « Message court », `gma
 
 Avec cette option, le raccourci principal applique aussi le post-traitement IA. Tu n'as plus besoin du raccourci séparé.
 
+### Une bulle qui te parle
+
+La bulle d'enregistrement affiche aussi de courts messages : un mot appris, « Pas de champ de texte : copié, colle avec ⌘V » quand tu dictes sans curseur dans un champ, et les erreurs (micro refusé ou absent, collage impossible, modèle qui ne charge pas). Un clic sur une erreur ouvre les réglages ; un clic sur un autre message le ferme.
+
 ### Autres changements
 
 - L'interrupteur du post-traitement IA a quitté les fonctions expérimentales : il est dans Réglages > Avancé > Transcription.

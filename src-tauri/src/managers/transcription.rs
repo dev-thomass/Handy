@@ -519,6 +519,13 @@ impl TranscriptionManager {
         // Every failure after loading starts must emit a terminal event so the
         // frontend can never remain in its loading state.
         let emit_loading_failed = |error_msg: &str| {
+            crate::overlay::show_notice(
+                &self.app_handle,
+                crate::overlay::NoticeKind::Error,
+                "modelFailed",
+                serde_json::json!({ "model": model_info.name }),
+                true,
+            );
             let _ = self.app_handle.emit(
                 "model-state-changed",
                 ModelStateEvent {

@@ -17,7 +17,14 @@ type OverlayState =
   | "streaming"
   | "transcribing"
   | "processing"
-  | "learned";
+  | "notice";
+
+// A short message shown in the pill (learned word, copied text, error).
+interface OverlayNotice {
+  kind: "success" | "info" | "error";
+  key: string;
+  params: Record<string, string>;
+}
 
 // Number of reactive bars in the waveform (the simple, smoothed style shared by
 // every overlay form). Mic levels arrive as 16 FFT buckets; we take the first N.
@@ -39,8 +46,7 @@ const RecordingOverlay: React.FC = () => {
   const [phase, setPhase] = useState<StreamPhase>("listening");
   const [workKind, setWorkKind] = useState<StreamWorkKind>("transcribing");
   const [elapsed, setElapsed] = useState(0);
-  // Word(s) just learned from a correction, shown briefly in the pill.
-  const [learnedWord, setLearnedWord] = useState("");
+  const [notice, setNotice] = useState<OverlayNotice | null>(null);
   // Bumped on each new streaming session so the Live card remounts fresh (replays
   // the pop-in, and never animates in from the previous panel's open size).
   const [session, setSession] = useState(0);
@@ -101,8 +107,9 @@ const RecordingOverlay: React.FC = () => {
         setCaptureReady(false);
       });
 
-      const unlistenLearned = await listen<string>("overlay-learned", (event) =>
-        setLearnedWord(event.payload),
+      const unlistenNotice = await listen<OverlayNotice>(
+        "overlay-notice",
+        (event) => setNotice(event.payload),
       );
 
       const unlistenReady = await listen("recording-ready", () => {
@@ -136,7 +143,7 @@ const RecordingOverlay: React.FC = () => {
         unlistenShow();
         unlistenHide();
         unlistenReady();
-        unlistenLearned();
+        unlistenNotice();
         unlistenLevel();
         unlistenStream();
         unlistenPhase();
@@ -291,33 +298,47 @@ const RecordingOverlay: React.FC = () => {
     );
   }
 
-  // ---- Learned: a quiet confirmation after a correction was learned ----
-  if (state === "learned") {
+  // ---- Notice: learned word, copied text or an error. Clicking an error
+  // opens the settings window; clicking anything else dismisses it. ----
+  if (state === "notice" && notice) {
+    const icon =
+      notice.kind === "success" ? (
+        <path d="M3.5 8.5 L6.5 11.5 L12.5 4.5" />
+      ) : notice.kind === "error" ? (
+        <path d="M8 3.5 V9 M8 12.2 V12.3" />
+      ) : (
+        <path d="M5 3.5 H11 V12.5 H5 Z M7 6.5 H9 M7 9 H9" />
+      );
     return (
       <div
         dir={direction}
         className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
       >
-        <div className="scard compact cworking">
-          <div className="sbase">
-            <div className="sbase-l">
-              <svg className="scheck" viewBox="0 0 16 16" aria-hidden="true">
-                <path
-                  d="M3.5 8.5 L6.5 11.5 L12.5 4.5"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </svg>
-            </div>
-            <span className="swork-label">
-              {t("overlay.learned", { word: learnedWord })}
-            </span>
-            <div className="sbase-r" />
-          </div>
-        </div>
+        <button
+          type="button"
+          className={`scard compact snotice ${notice.kind}`}
+          onClick={() => {
+            if (notice.kind === "error") commands.showMainWindowCommand();
+            setIsVisible(false);
+          }}
+        >
+          <span className="sicon">
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <g
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              >
+                {icon}
+              </g>
+            </svg>
+          </span>
+          <span className="snotice-text">
+            {t(`overlay.notice.${notice.key}`, notice.params)}
+          </span>
+        </button>
       </div>
     );
   }

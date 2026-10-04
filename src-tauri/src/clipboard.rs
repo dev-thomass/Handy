@@ -28,6 +28,11 @@ fn with_enigo<T>(
     f(&mut enigo)
 }
 
+/// Leave `text` on the clipboard (no restore), so the user can paste it.
+pub fn copy_text(app_handle: &AppHandle, text: &str) -> Result<(), String> {
+    write_text_to_clipboard(app_handle, text)
+}
+
 fn write_text_to_clipboard(app_handle: &AppHandle, text: &str) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     if is_wayland() && is_wl_copy_available() {

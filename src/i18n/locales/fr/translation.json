@@ -751,7 +751,17 @@
   "overlay": {
     "transcribing": "Transcription...",
     "processing": "Traitement...",
-    "learned": "« {{word}} » appris"
+    "notice": {
+      "learned": "« {{word}} » appris",
+      "copiedNoField": "Pas de champ de texte : copié, colle avec ⌘V",
+      "pasteFailedCopied": "Collage impossible : texte copié, colle avec ⌘V",
+      "pasteFailed": "Collage impossible. Clique pour voir",
+      "transcriptionFailed": "La transcription a échoué. Clique pour voir",
+      "micDenied": "Micro refusé : autorise-le dans Réglages Système",
+      "noMic": "Aucun micro trouvé",
+      "recordingFailed": "Enregistrement impossible. Clique pour voir",
+      "modelFailed": "Impossible de charger {{model}}"
+    }
   },
   "whatsNew": {
     "title": "Nouveautés de Handy v{{version}}"
