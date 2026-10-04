@@ -685,6 +685,33 @@ fn update_overlay_position_on_main(app_handle: &AppHandle) {
 /// the instant it drained, well inside the 300 ms hide delay.
 static OVERLAY_SHOW_GENERATION: AtomicU64 = AtomicU64::new(0);
 
+/// Briefly show the overlay pill with "« word » learned" after a correction
+/// was learned. Skipped while the overlay is busy with a recording.
+pub fn show_learned_overlay(app_handle: &AppHandle, label: String) {
+    if settings::get_settings(app_handle).overlay_style == OverlayStyle::None {
+        return;
+    }
+    let handle = app_handle.clone();
+    let _ = app_handle.run_on_main_thread(move || {
+        let Some(overlay_window) = handle.get_webview_window("recording_overlay") else {
+            return;
+        };
+        if overlay_window.is_visible().unwrap_or(false) {
+            return;
+        }
+        let _ = overlay_window.emit("overlay-learned", label);
+        show_overlay_state_on_main(&handle, "learned");
+        let shown_at = OVERLAY_SHOW_GENERATION.load(Ordering::SeqCst);
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(2200));
+            // A recording started meanwhile owns the overlay now.
+            if OVERLAY_SHOW_GENERATION.load(Ordering::SeqCst) == shown_at {
+                hide_recording_overlay(&handle);
+            }
+        });
+    });
+}
+
 /// Hides the recording overlay window with fade-out animation
 pub fn hide_recording_overlay(app_handle: &AppHandle) {
     // Always hide the overlay regardless of settings - if setting was changed while recording,

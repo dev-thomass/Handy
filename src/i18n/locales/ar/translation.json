@@ -750,7 +750,8 @@
   },
   "overlay": {
     "transcribing": "...جاري التفريغ",
-    "processing": "...جاري المعالجة"
+    "processing": "...جاري المعالجة",
+    "learned": "Learned “{{word}}”"
   },
   "whatsNew": {
     "title": "الجديد في Handy v{{version}}"

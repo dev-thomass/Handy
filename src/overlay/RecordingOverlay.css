@@ -443,6 +443,14 @@
   transform: scale(0.95);
 }
 
+/* learned confirmation — check mark in the accent color */
+.scheck {
+  width: 11px;
+  height: 11px;
+  color: var(--s-accent);
+  flex: none;
+}
+
 /* working state (transcribing / polishing) — spinner + label */
 .sspinner {
   width: 9px;

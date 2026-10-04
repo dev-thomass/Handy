@@ -750,7 +750,8 @@
   },
   "overlay": {
     "transcribing": "텍스트로 변환 중...",
-    "processing": "처리 중..."
+    "processing": "처리 중...",
+    "learned": "Learned “{{word}}”"
   },
   "whatsNew": {
     "title": "Handy v{{version}}의 새 소식"

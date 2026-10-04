@@ -750,7 +750,8 @@
   },
   "overlay": {
     "transcribing": "Přepisuji...",
-    "processing": "Zpracovávám..."
+    "processing": "Zpracovávám...",
+    "learned": "Learned “{{word}}”"
   },
   "whatsNew": {
     "title": "Novinky v Handy v{{version}}"
