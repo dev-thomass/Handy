@@ -33,6 +33,12 @@ Avec cette option, le raccourci principal applique aussi le post-traitement IA. 
 - L'app s'appelle Wisprfree (`com.wisprfree.app`). Elle s'installe à côté de Handy, avec ses propres réglages.
 - Les mises à jour viennent de ton fork, jamais de Handy. Chaque build de `main` est publié comme version signée, et l'app propose « Mise à jour disponible » en bas de la fenêtre. Ça demande le secret GitHub `TAURI_SIGNING_PRIVATE_KEY` (la clé privée qui correspond à `pubkey` dans `src-tauri/tauri.conf.json`).
 
+## Mettre à jour
+
+Quand une nouvelle version est publiée, « Mise à jour disponible » apparaît en bas de la fenêtre des réglages. Un clic la télécharge, vérifie sa signature, l'installe et relance l'app. Tu peux aussi vérifier à la main depuis l'icône de la barre des menus, avec « Rechercher des mises à jour ». Tes réglages et tes modèles sont conservés.
+
+Les versions sont publiées sur la page [Releases](https://github.com/dev-thomass/Handy/releases) du fork. Le fichier `Wisprfree-aarch64.dmg` est pour les Mac Apple Silicon (M1 et suivants), `Wisprfree-x86_64.dmg` pour les Mac Intel.
+
 ## Limites connues
 
 - Détection de l'app active : Windows et macOS (nom de l'app) ; sous Linux, X11 (`xprop`) et Hyprland. Les autres compositeurs Wayland ne sont pas détectés, et le prompt sélectionné s'applique alors.
