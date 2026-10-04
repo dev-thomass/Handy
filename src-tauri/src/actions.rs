@@ -956,6 +956,8 @@ fn fold_corrections(app: &AppHandle, corrections: Vec<learning::LearnedCorrectio
             serde_json::json!({ "setting": "text_replacements" }),
         );
     }
+    let words: Vec<&str> = corrections.iter().map(|c| c.word.as_str()).collect();
+    crate::overlay::show_learned_overlay(app, words.join(", "));
     for learned in corrections {
         debug!(
             "Learned correction: '{}' (misheard: {:?})",

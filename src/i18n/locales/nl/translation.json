@@ -753,7 +753,8 @@
   },
   "overlay": {
     "transcribing": "Transcriberen...",
-    "processing": "Verwerken..."
+    "processing": "Verwerken...",
+    "learned": "Learned “{{word}}”"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} blokkeert mogelijk 1 sneltoets",

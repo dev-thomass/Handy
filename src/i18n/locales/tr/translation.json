@@ -750,7 +750,8 @@
   },
   "overlay": {
     "transcribing": "Transkribe ediliyor...",
-    "processing": "İşleniyor..."
+    "processing": "İşleniyor...",
+    "learned": "Learned “{{word}}”"
   },
   "whatsNew": {
     "title": "Handy v{{version}} yenilikleri"

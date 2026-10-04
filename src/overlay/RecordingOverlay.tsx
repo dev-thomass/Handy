@@ -12,7 +12,12 @@ import type {
 import i18n, { syncLanguageFromSettings } from "@/i18n";
 import { getLanguageDirection } from "@/lib/utils/rtl";
 
-type OverlayState = "recording" | "streaming" | "transcribing" | "processing";
+type OverlayState =
+  | "recording"
+  | "streaming"
+  | "transcribing"
+  | "processing"
+  | "learned";
 
 // Number of reactive bars in the waveform (the simple, smoothed style shared by
 // every overlay form). Mic levels arrive as 16 FFT buckets; we take the first N.
@@ -34,6 +39,8 @@ const RecordingOverlay: React.FC = () => {
   const [phase, setPhase] = useState<StreamPhase>("listening");
   const [workKind, setWorkKind] = useState<StreamWorkKind>("transcribing");
   const [elapsed, setElapsed] = useState(0);
+  // Word(s) just learned from a correction, shown briefly in the pill.
+  const [learnedWord, setLearnedWord] = useState("");
   // Bumped on each new streaming session so the Live card remounts fresh (replays
   // the pop-in, and never animates in from the previous panel's open size).
   const [session, setSession] = useState(0);
@@ -94,6 +101,10 @@ const RecordingOverlay: React.FC = () => {
         setCaptureReady(false);
       });
 
+      const unlistenLearned = await listen<string>("overlay-learned", (event) =>
+        setLearnedWord(event.payload),
+      );
+
       const unlistenReady = await listen("recording-ready", () => {
         setElapsed(0);
         setCaptureReady(true);
@@ -125,6 +136,7 @@ const RecordingOverlay: React.FC = () => {
         unlistenShow();
         unlistenHide();
         unlistenReady();
+        unlistenLearned();
         unlistenLevel();
         unlistenStream();
         unlistenPhase();
@@ -274,6 +286,37 @@ const RecordingOverlay: React.FC = () => {
                 true,
               )
             : listeningRow(open, true)}
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Learned: a quiet confirmation after a correction was learned ----
+  if (state === "learned") {
+    return (
+      <div
+        dir={direction}
+        className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
+      >
+        <div className="scard compact cworking">
+          <div className="sbase">
+            <div className="sbase-l">
+              <svg className="scheck" viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  d="M3.5 8.5 L6.5 11.5 L12.5 4.5"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </svg>
+            </div>
+            <span className="swork-label">
+              {t("overlay.learned", { word: learnedWord })}
+            </span>
+            <div className="sbase-r" />
+          </div>
         </div>
       </div>
     );

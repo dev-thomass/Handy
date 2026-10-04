@@ -750,7 +750,8 @@
   },
   "overlay": {
     "transcribing": "Transkrypcja...",
-    "processing": "Przetwarzanie..."
+    "processing": "Przetwarzanie...",
+    "learned": "Learned “{{word}}”"
   },
   "whatsNew": {
     "title": "Nowości w Handy v{{version}}"
