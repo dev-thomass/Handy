@@ -516,9 +516,24 @@ jobs:
       # env below defines APPLE_CERTIFICATE even when empty, which makes the
       # bundler try to import a certificate and fail. Build without those vars;
       # the app is ad-hoc signed via `signingIdentity: "-"`.
+      # Wisprfree: each build gets its own version (1.0.<run number>) so the
+      # updater can tell builds apart. With the fork's updater key in
+      # TAURI_SIGNING_PRIVATE_KEY, it also emits the signed .app.tar.gz the
+      # updater installs; without it the build still succeeds, just unsigned.
       - name: Build with Tauri (macOS, unsigned)
         if: contains(inputs.platform, 'macos') && !inputs.sign-binaries
-        run: bun run tauri build ${{ inputs.build-args }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          APP_VERSION: 1.0.${{ github.run_number }}
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            CONFIG="{\"version\":\"$APP_VERSION\",\"bundle\":{\"createUpdaterArtifacts\":true}}"
+          else
+            echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set; building without updater artifacts."
+            CONFIG="{\"version\":\"$APP_VERSION\"}"
+          fi
+          bun run tauri build ${{ inputs.build-args }} --config "$CONFIG"
 
       - name: Build with Tauri
         if: ${{ !(contains(inputs.platform, 'macos') && !inputs.sign-binaries) }}
@@ -617,6 +632,8 @@ jobs:
           path: |
             src-tauri/target/${{ inputs.target }}/${{ steps.build-profile.outputs.profile }}/bundle/dmg/*.dmg
             src-tauri/target/${{ inputs.target }}/${{ steps.build-profile.outputs.profile }}/bundle/macos/*.app
+            src-tauri/target/${{ inputs.target }}/${{ steps.build-profile.outputs.profile }}/bundle/macos/*.app.tar.gz
+            src-tauri/target/${{ inputs.target }}/${{ steps.build-profile.outputs.profile }}/bundle/macos/*.app.tar.gz.sig
           retention-days: 30
 
       - name: Audit Linux package runtime contents

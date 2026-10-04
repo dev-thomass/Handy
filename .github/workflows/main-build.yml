@@ -4,6 +4,10 @@ name: "Main Branch Build"
 # demand) and keeps it as a downloadable artifact for 30 days. Signing needs
 # Handy's Apple certificate, which this fork doesn't have, so the app is
 # ad-hoc signed and must be opened once with right-click > Open.
+#
+# When the fork's updater key is set (TAURI_SIGNING_PRIVATE_KEY secret), the
+# build is also published as a GitHub release with a latest.json, which the
+# app's built-in updater reads to offer the new version.
 
 on:
   workflow_dispatch:
@@ -38,3 +42,44 @@ jobs:
       upload-artifacts: true
       sign-binaries: false
     secrets: inherit
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          path: dist
+
+      - name: Publish signed release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          VERSION: 1.0.${{ github.run_number }}
+          NOTES: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          mkdir release
+          platforms='{}'
+          for arch in aarch64 x86_64; do
+            dir="dist/wisprfree-$arch-apple-darwin"
+            tarball=$(find "$dir" -name '*.app.tar.gz' | head -n1)
+            if [ -z "$tarball" ] || [ ! -f "$tarball.sig" ]; then
+              echo "::notice::No signed updater bundle for $arch (TAURI_SIGNING_PRIVATE_KEY not set?); skipping release."
+              exit 0
+            fi
+            cp "$tarball" "release/Wisprfree-$arch.app.tar.gz"
+            dmg=$(find "$dir" -name '*.dmg' | head -n1)
+            [ -n "$dmg" ] && cp "$dmg" "release/Wisprfree-$arch.dmg"
+            url="https://github.com/$REPO/releases/download/v$VERSION/Wisprfree-$arch.app.tar.gz"
+            platforms=$(jq --arg k "darwin-$arch" --arg sig "$(cat "$tarball.sig")" --arg url "$url" \
+              '. + {($k): {signature: $sig, url: $url}}' <<< "$platforms")
+          done
+          jq -n --arg v "$VERSION" --arg notes "${NOTES:-Wisprfree $VERSION}" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson platforms "$platforms" \
+            '{version: $v, notes: $notes, pub_date: $date, platforms: $platforms}' > release/latest.json
+          cat release/latest.json
+          gh release create "v$VERSION" release/* --repo "$REPO" --target "$GITHUB_SHA" \
+            --title "Wisprfree $VERSION" --notes "${NOTES:-Wisprfree $VERSION}" --latest

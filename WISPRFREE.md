@@ -31,7 +31,7 @@ Avec cette option, le raccourci principal applique aussi le post-traitement IA. 
 
 - L'interrupteur du post-traitement IA a quitté les fonctions expérimentales : il est dans Réglages > Avancé > Transcription.
 - L'app s'appelle Wisprfree (`com.wisprfree.app`). Elle s'installe à côté de Handy, avec ses propres réglages.
-- La mise à jour automatique est désactivée : elle installerait Handy par-dessus ce fork.
+- Les mises à jour viennent de ton fork, jamais de Handy. Chaque build de `main` est publié comme version signée, et l'app propose « Mise à jour disponible » en bas de la fenêtre. Ça demande le secret GitHub `TAURI_SIGNING_PRIVATE_KEY` (la clé privée qui correspond à `pubkey` dans `src-tauri/tauri.conf.json`).
 
 ## Limites connues
 
