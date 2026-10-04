@@ -512,7 +512,16 @@ jobs:
           chmod +x "$tools_dir/linuxdeploy-${arch}.AppImage"
           "$tools_dir/linuxdeploy-${arch}.AppImage" --appimage-extract-and-run --version
 
+      # Unsigned macOS builds (forks without Apple secrets): tauri-action's
+      # env below defines APPLE_CERTIFICATE even when empty, which makes the
+      # bundler try to import a certificate and fail. Build without those vars;
+      # the app is ad-hoc signed via `signingIdentity: "-"`.
+      - name: Build with Tauri (macOS, unsigned)
+        if: contains(inputs.platform, 'macos') && !inputs.sign-binaries
+        run: bun run tauri build ${{ inputs.build-args }}
+
       - name: Build with Tauri
+        if: ${{ !(contains(inputs.platform, 'macos') && !inputs.sign-binaries) }}
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
