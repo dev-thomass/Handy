@@ -1,10 +1,12 @@
 name: "Main Branch Build"
 
-# Runs the full cross-platform build on every push to main so breakage is
-# caught before a manual release is triggered. Artifacts are kept for 30 days
-# so any commit on main has a downloadable, testable build.
+# Wisprfree: builds an unsigned macOS app on every push to main (and on
+# demand) and keeps it as a downloadable artifact for 30 days. Signing needs
+# Handy's Apple certificate, which this fork doesn't have, so the app is
+# ad-hoc signed and must be opened once with right-click > Open.
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
 
@@ -20,33 +22,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: "macos-26"
+          - platform: "macos-26" # Apple Silicon (M1 and later)
             args: "--target aarch64-apple-darwin"
             target: "aarch64-apple-darwin"
-          - platform: "macos-latest"
+          - platform: "macos-latest" # Intel
             args: "--target x86_64-apple-darwin"
             target: "x86_64-apple-darwin"
-          - platform: "ubuntu-22.04"
-            args: "--bundles deb"
-            target: "x86_64-unknown-linux-gnu"
-          - platform: "ubuntu-24.04"
-            args: "--bundles appimage,rpm"
-            target: "x86_64-unknown-linux-gnu"
-          - platform: "ubuntu-24.04-arm"
-            args: "--bundles appimage,deb,rpm"
-            target: "aarch64-unknown-linux-gnu"
-          - platform: "windows-latest"
-            args: ""
-            target: "x86_64-pc-windows-msvc"
-          - platform: "windows-11-arm"
-            args: "--target aarch64-pc-windows-msvc"
-            target: "aarch64-pc-windows-msvc"
 
     uses: ./.github/workflows/build.yml
     with:
       platform: ${{ matrix.platform }}
       target: ${{ matrix.target }}
       build-args: ${{ matrix.args }}
+      asset-prefix: "wisprfree"
       upload-artifacts: true
-      sign-binaries: true
+      sign-binaries: false
     secrets: inherit
