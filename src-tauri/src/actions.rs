@@ -2,6 +2,7 @@
 use crate::apple_intelligence;
 use crate::audio_feedback::{play_feedback_sound, play_feedback_sound_blocking, SoundType};
 use crate::audio_toolkit::{is_microphone_access_denied, is_no_input_device_error, VadPolicy};
+use crate::auto_learn;
 use crate::learning;
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::history::HistoryManager;
@@ -767,11 +768,15 @@ impl ShortcutAction for TranscribeAction {
                                     }
 
                                     learning::set_last_output(&final_text);
+                                    let pasted = final_text.clone();
                                     match utils::paste(final_text, ah_clone.clone()) {
-                                        Ok(()) => debug!(
-                                            "Text pasted successfully in {:?}",
-                                            paste_time.elapsed()
-                                        ),
+                                        Ok(()) => {
+                                            debug!(
+                                                "Text pasted successfully in {:?}",
+                                                paste_time.elapsed()
+                                            );
+                                            watch_for_corrections(&ah_clone, &pasted);
+                                        }
                                         Err(e) => {
                                             error!("Failed to paste transcription: {}", e);
                                             let _ = ah_clone.emit("paste-error", ());
@@ -928,12 +933,21 @@ fn learn_from_selection(app: &AppHandle) {
         return;
     };
 
+    fold_corrections(app, vec![learned]);
+    play_feedback_sound(app, SoundType::Stop);
+}
+
+/// Add learned corrections to the vocabulary and tell the UI about each one.
+fn fold_corrections(app: &AppHandle, corrections: Vec<learning::LearnedCorrection>) {
     let mut settings = get_settings(app);
-    let changed = learning::apply_learned_correction(
-        &learned,
-        &mut settings.custom_words,
-        &mut settings.text_replacements,
-    );
+    let mut changed = false;
+    for learned in &corrections {
+        changed |= learning::apply_learned_correction(
+            learned,
+            &mut settings.custom_words,
+            &mut settings.text_replacements,
+        );
+    }
     if changed {
         crate::settings::write_settings(app, settings);
         // The settings window re-fetches everything on this event.
@@ -942,19 +956,33 @@ fn learn_from_selection(app: &AppHandle) {
             serde_json::json!({ "setting": "text_replacements" }),
         );
     }
-    debug!(
-        "Learned correction: '{}' (misheard: {:?})",
-        utils::redact_text(&learned.word),
-        learned.misheard.as_deref().map(utils::redact_text)
-    );
-    play_feedback_sound(app, SoundType::Stop);
-    let _ = app.emit(
-        "correction-learned",
-        CorrectionLearnedEvent {
-            word: learned.word,
-            misheard: learned.misheard,
-        },
-    );
+    for learned in corrections {
+        debug!(
+            "Learned correction: '{}' (misheard: {:?})",
+            utils::redact_text(&learned.word),
+            learned.misheard.as_deref().map(utils::redact_text)
+        );
+        let _ = app.emit(
+            "correction-learned",
+            CorrectionLearnedEvent {
+                word: learned.word,
+                misheard: learned.misheard,
+            },
+        );
+    }
+}
+
+/// After a paste, watch the target field and learn the words the user fixes.
+fn watch_for_corrections(app: &AppHandle, pasted: &str) {
+    if !get_settings(app).auto_learn_corrections {
+        return;
+    }
+    let app = app.clone();
+    auto_learn::watch_after_paste(pasted.to_string(), move |corrections| {
+        if get_settings(&app).auto_learn_corrections {
+            fold_corrections(&app, corrections);
+        }
+    });
 }
 
 // Static Action Map

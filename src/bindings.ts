@@ -336,6 +336,14 @@ async changeAutoPostProcessSetting(enabled: boolean) : Promise<Result<null, stri
     else return { status: "error", error: e  as any };
 }
 },
+async changeAutoLearnCorrectionsSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_auto_learn_corrections_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
  * Temporarily unregister all bindings while the user is recording a
  * shortcut in the UI. This avoids firing actions while keys are recorded.
@@ -1054,7 +1062,12 @@ app_prompt_rules?: AppPromptRule[];
  * Apply AI post-processing on the main transcribe shortcut too, so a
  * single shortcut always gives cleaned-up text.
  */
-auto_post_process?: boolean }
+auto_post_process?: boolean; 
+/**
+ * Watch the text field after a paste and learn the words the user
+ * retypes (macOS, needs the Accessibility permission already granted).
+ */
+auto_learn_corrections?: boolean }
 /**
  * Use a specific post-processing prompt when the focused app matches.
  */

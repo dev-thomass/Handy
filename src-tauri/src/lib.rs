@@ -3,6 +3,7 @@ mod actions;
 mod apple_intelligence;
 mod audio_feedback;
 pub mod audio_toolkit;
+mod auto_learn;
 mod autostart;
 mod catalog;
 mod chinese_script;
@@ -692,6 +693,7 @@ pub fn run(cli_args: CliArgs) {
             shortcut::update_text_replacements,
             shortcut::update_app_prompt_rules,
             shortcut::change_auto_post_process_setting,
+            shortcut::change_auto_learn_corrections_setting,
             shortcut::suspend_all_bindings,
             shortcut::resume_all_bindings,
             shortcut::change_mute_while_recording_setting,

@@ -675,6 +675,10 @@
         "label": "Always Post-Process",
         "description": "Apply AI post-processing with the main transcribe shortcut too, so one shortcut always gives clean text."
       },
+      "autoLearn": {
+        "label": "Learn from my corrections",
+        "description": "When you retype a word right after a dictation is pasted, Wisprfree learns it and writes it correctly next time. Works in apps that expose their text fields to Accessibility."
+      },
       "toast": {
         "learned": "Learned \"{{word}}\"",
         "learnedFrom": "\"{{misheard}}\" will now be written \"{{word}}\"",

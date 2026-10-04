@@ -675,6 +675,10 @@
         "label": "Toujours post-traiter",
         "description": "Applique aussi le post-traitement IA avec le raccourci principal : un seul raccourci donne toujours un texte propre."
       },
+      "autoLearn": {
+        "label": "Apprendre de mes corrections",
+        "description": "Quand tu corriges un mot juste après une dictée, Wisprfree l'apprend et l'écrit correctement la fois suivante. Marche dans les apps qui donnent accès à leurs champs de texte (Accessibilité)."
+      },
       "toast": {
         "learned": "« {{word}} » appris",
         "learnedFrom": "« {{misheard}} » sera désormais écrit « {{word}} »",

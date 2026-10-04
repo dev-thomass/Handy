@@ -4,7 +4,11 @@ Wisprfree est un fork de [Handy](https://github.com/cjpais/Handy) (licence MIT) 
 
 ## Ce qui change par rapport à Handy
 
-### Apprendre une correction (Réglages > Avancé > Apprentissage)
+### Apprendre de tes corrections, tout seul (Réglages > Avancé > Apprentissage)
+
+Après chaque dictée, Wisprfree garde un œil sur le champ où le texte a été collé. Si tu retapes un mot mal compris (« Tomas » → « Thomas »), il l'apprend dès que tu as fini ou que tu changes de champ, et l'écrit correctement la fois suivante. Il ne retient que les mots qui ressemblent à l'original : une phrase réécrite, un mot ajouté ou supprimé ne sont pas appris. Ça demande l'autorisation d'Accessibilité, et ça marche dans les apps qui donnent accès à leurs champs de texte (la plupart des apps Mac, les navigateurs, Slack, Notes…). Tu peux le couper avec « Apprendre de mes corrections ».
+
+### Apprendre une correction avec un raccourci
 
 1. Tu dictes, et un mot sort mal (« Tomas » au lieu de « Thomas »).
 2. Tu le corriges dans ton texte, puis tu le sélectionnes.
@@ -38,6 +42,10 @@ Avec cette option, le raccourci principal applique aussi le post-traitement IA. 
 Quand une nouvelle version est publiée, « Mise à jour disponible » apparaît en bas de la fenêtre des réglages. Un clic la télécharge, vérifie sa signature, l'installe et relance l'app. Tu peux aussi vérifier à la main depuis l'icône de la barre des menus, avec « Rechercher des mises à jour ». Tes réglages et tes modèles sont conservés.
 
 Les versions sont publiées sur la page [Releases](https://github.com/dev-thomass/Handy/releases) du fork. Le fichier `Wisprfree-aarch64.dmg` est pour les Mac Apple Silicon (M1 et suivants), `Wisprfree-x86_64.dmg` pour les Mac Intel.
+
+## Choisir un modèle
+
+Pour le français, prends **Parakeet TDT 0.6B v3** (rapide et précis) ou **Cohere Transcribe** (le plus précis, un peu plus lent), dans Réglages > Modèles. Les modèles marqués « EN » ne comprennent que l'anglais : avec eux, une dictée en français ressort en anglais.
 
 ## Limites connues
 
