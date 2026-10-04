@@ -3,12 +3,14 @@ use crate::apple_intelligence;
 use crate::audio_feedback::{play_feedback_sound, play_feedback_sound_blocking, SoundType};
 use crate::audio_toolkit::{is_microphone_access_denied, is_no_input_device_error, VadPolicy};
 use crate::auto_learn;
+use crate::clipboard;
 use crate::learning;
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::history::HistoryManager;
 use crate::managers::model::ModelManager;
 use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
+use crate::overlay::{show_notice, NoticeKind};
 use crate::settings::{
     get_settings, AppSettings, LLMPrompt, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID,
 };
@@ -555,6 +557,17 @@ impl ShortcutAction for TranscribeAction {
                 } else {
                     "unknown"
                 };
+                show_notice(
+                    app,
+                    NoticeKind::Error,
+                    match error_type {
+                        "microphone_permission_denied" => "micDenied",
+                        "no_input_device" => "noMic",
+                        _ => "recordingFailed",
+                    },
+                    serde_json::json!({}),
+                    true,
+                );
                 let _ = app.emit(
                     "recording-error",
                     RecordingErrorEvent {
@@ -768,6 +781,24 @@ impl ShortcutAction for TranscribeAction {
                                     }
 
                                     learning::set_last_output(&final_text);
+                                    // Nothing focused can take text: keep it on
+                                    // the clipboard and say so, rather than
+                                    // pasting into the void.
+                                    if auto_learn::focus_accepts_text() == Some(false) {
+                                        match clipboard::copy_text(&ah_clone, &final_text) {
+                                            Ok(()) => show_notice(
+                                                &ah_clone,
+                                                NoticeKind::Info,
+                                                "copiedNoField",
+                                                serde_json::json!({}),
+                                                true,
+                                            ),
+                                            Err(e) => error!("Failed to copy transcription: {}", e),
+                                        }
+                                        utils::hide_recording_overlay(&ah_clone);
+                                        set_tray_state(&ah_clone, TrayIconState::Idle);
+                                        return;
+                                    }
                                     let pasted = final_text.clone();
                                     match utils::paste(final_text, ah_clone.clone()) {
                                         Ok(()) => {
@@ -780,6 +811,19 @@ impl ShortcutAction for TranscribeAction {
                                         Err(e) => {
                                             error!("Failed to paste transcription: {}", e);
                                             let _ = ah_clone.emit("paste-error", ());
+                                            let copied =
+                                                clipboard::copy_text(&ah_clone, &pasted).is_ok();
+                                            show_notice(
+                                                &ah_clone,
+                                                NoticeKind::Error,
+                                                if copied {
+                                                    "pasteFailedCopied"
+                                                } else {
+                                                    "pasteFailed"
+                                                },
+                                                serde_json::json!({}),
+                                                true,
+                                            );
                                         }
                                     }
                                     utils::hide_recording_overlay(&ah_clone);
@@ -806,6 +850,13 @@ impl ShortcutAction for TranscribeAction {
                             // Surface the failure to the UI (toast). The full
                             // message is also in handy.log via the line above.
                             let _ = ah.emit("transcription-error", err.to_string());
+                            show_notice(
+                                &ah,
+                                NoticeKind::Error,
+                                "transcriptionFailed",
+                                serde_json::json!({}),
+                                true,
+                            );
                             // Save entry with empty text so user can retry
                             if wav_saved {
                                 if let Err(save_err) = hm.save_entry(
@@ -957,7 +1008,13 @@ fn fold_corrections(app: &AppHandle, corrections: Vec<learning::LearnedCorrectio
         );
     }
     let words: Vec<&str> = corrections.iter().map(|c| c.word.as_str()).collect();
-    crate::overlay::show_learned_overlay(app, words.join(", "));
+    crate::overlay::show_notice(
+        app,
+        NoticeKind::Success,
+        "learned",
+        serde_json::json!({ "word": words.join(", ") }),
+        false,
+    );
     for learned in corrections {
         debug!(
             "Learned correction: '{}' (misheard: {:?})",

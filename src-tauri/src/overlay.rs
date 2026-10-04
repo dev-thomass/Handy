@@ -685,29 +685,65 @@ fn update_overlay_position_on_main(app_handle: &AppHandle) {
 /// the instant it drained, well inside the 300 ms hide delay.
 static OVERLAY_SHOW_GENERATION: AtomicU64 = AtomicU64::new(0);
 
-/// Briefly show the overlay pill with "« word » learned" after a correction
-/// was learned. Skipped while the overlay is busy with a recording.
-pub fn show_learned_overlay(app_handle: &AppHandle, label: String) {
+/// What a notice in the overlay pill is about; picks its icon and duration.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NoticeKind {
+    Success,
+    Info,
+    Error,
+}
+
+#[derive(Clone, serde::Serialize)]
+struct OverlayNotice {
+    kind: NoticeKind,
+    /// i18n key under `overlay.notice.`
+    key: &'static str,
+    params: serde_json::Value,
+}
+
+/// Briefly show a message in the overlay pill: something learned, text that
+/// was copied instead of pasted, or an error. With `interrupt` it replaces
+/// whatever the overlay shows; otherwise it waits its turn and is skipped
+/// while a recording owns the overlay.
+pub fn show_notice(
+    app_handle: &AppHandle,
+    kind: NoticeKind,
+    key: &'static str,
+    params: serde_json::Value,
+    interrupt: bool,
+) {
     if settings::get_settings(app_handle).overlay_style == OverlayStyle::None {
         return;
     }
     let handle = app_handle.clone();
-    let _ = app_handle.run_on_main_thread(move || {
-        let Some(overlay_window) = handle.get_webview_window("recording_overlay") else {
-            return;
-        };
-        if overlay_window.is_visible().unwrap_or(false) {
-            return;
-        }
-        let _ = overlay_window.emit("overlay-learned", label);
-        show_overlay_state_on_main(&handle, "learned");
-        let shown_at = OVERLAY_SHOW_GENERATION.load(Ordering::SeqCst);
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(2200));
-            // A recording started meanwhile owns the overlay now.
-            if OVERLAY_SHOW_GENERATION.load(Ordering::SeqCst) == shown_at {
-                hide_recording_overlay(&handle);
+    std::thread::spawn(move || {
+        // Let a hide that the failing code path issues right now land first,
+        // so it does not swallow the notice.
+        std::thread::sleep(std::time::Duration::from_millis(120));
+        let main_handle = handle.clone();
+        let _ = handle.run_on_main_thread(move || {
+            let Some(overlay_window) = main_handle.get_webview_window("recording_overlay") else {
+                return;
+            };
+            if !interrupt && overlay_window.is_visible().unwrap_or(false) {
+                return;
             }
+            let _ = overlay_window.emit("overlay-notice", OverlayNotice { kind, key, params });
+            show_overlay_state_on_main(&main_handle, "notice");
+            let shown_at = OVERLAY_SHOW_GENERATION.load(Ordering::SeqCst);
+            let visible_for = match kind {
+                NoticeKind::Success => 2200,
+                NoticeKind::Info => 3500,
+                NoticeKind::Error => 4500,
+            };
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(visible_for));
+                // A recording started meanwhile owns the overlay now.
+                if OVERLAY_SHOW_GENERATION.load(Ordering::SeqCst) == shown_at {
+                    hide_recording_overlay(&main_handle);
+                }
+            });
         });
     });
 }

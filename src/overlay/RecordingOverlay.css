@@ -443,12 +443,44 @@
   transform: scale(0.95);
 }
 
-/* learned confirmation — check mark in the accent color */
-.scheck {
-  width: 11px;
-  height: 11px;
-  color: var(--s-accent);
+/* notice — a short message that sizes to its text (two lines at most) */
+.scard.snotice {
+  width: auto;
+  min-width: var(--ov-rest-w);
+  max-width: min(240px, calc(100vw - 2px));
+  min-height: var(--ov-base-h);
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px 4px 9px;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  border-radius: 14px;
+}
+.sicon {
+  width: 13px;
+  height: 13px;
   flex: none;
+  color: var(--s-accent);
+}
+.sicon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.snotice.error .sicon {
+  color: var(--color-error);
+}
+.snotice-text {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--color-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* working state (transcribing / polishing) — spinner + label */

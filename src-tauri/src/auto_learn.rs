@@ -161,6 +161,12 @@ where
     });
 }
 
+/// Whether the focused UI element can take text. `None` when unknown
+/// (not macOS, or Accessibility unavailable): callers should paste as usual.
+pub fn focus_accepts_text() -> Option<bool> {
+    platform::focus_accepts_text()
+}
+
 #[cfg(target_os = "macos")]
 mod platform {
     use super::find_corrections;
@@ -254,6 +260,31 @@ mod platform {
         copy_attribute(system.0, "AXFocusedUIElement")
     }
 
+    const TEXT_ROLES: [&str; 4] = ["AXTextField", "AXTextArea", "AXComboBox", "AXSearchField"];
+
+    pub fn focus_accepts_text() -> Option<bool> {
+        // Without Accessibility nothing can be read: stay out of the way.
+        let system = Cf(unsafe { AXUIElementCreateSystemWide() });
+        let mut probe: CFTypeRef = std::ptr::null();
+        let attribute = cf_string("AXFocusedApplication");
+        let err = unsafe { AXUIElementCopyAttributeValue(system.0, attribute.0, &mut probe) };
+        if err != 0 || probe.is_null() {
+            return None;
+        }
+        drop(Cf(probe));
+
+        let Some(element) = focused_element() else {
+            return Some(false);
+        };
+        let role = copy_attribute(element.0, "AXRole").and_then(|r| to_string(&r));
+        if role.as_deref().is_some_and(|r| TEXT_ROLES.contains(&r)) {
+            return Some(true);
+        }
+        // Rich editors (web contenteditable, Slack, Notion…) expose a text
+        // selection even when their role is generic.
+        Some(copy_attribute(element.0, "AXSelectedTextRange").is_some())
+    }
+
     fn read_value(element: &Cf) -> Option<String> {
         to_string(&copy_attribute(element.0, "AXValue")?)
     }
@@ -308,6 +339,10 @@ mod platform {
 #[cfg(not(target_os = "macos"))]
 mod platform {
     use crate::learning::LearnedCorrection;
+
+    pub fn focus_accepts_text() -> Option<bool> {
+        None
+    }
 
     pub fn watch(
         _pasted: &str,
