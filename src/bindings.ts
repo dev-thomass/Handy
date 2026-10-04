@@ -312,6 +312,30 @@ async updateCustomWords(words: string[]) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async updateTextReplacements(replacements: TextReplacement[]) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_text_replacements", { replacements }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateAppPromptRules(rules: AppPromptRule[]) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_app_prompt_rules", { rules }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async changeAutoPostProcessSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_auto_post_process_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
  * Temporarily unregister all bindings while the user is recording a
  * shortcut in the UI. This avoids firing actions while keys are recorded.
@@ -1017,7 +1041,29 @@ vad_backend?: VadBackend;
  * not gated on this — that follows model capability. Migrated from the old
  * `overlay_position` (position `none` → style `None`).
  */
-overlay_style?: OverlayStyle }
+overlay_style?: OverlayStyle; 
+/**
+ * Learned corrections and voice snippets, applied to every transcription.
+ */
+text_replacements?: TextReplacement[]; 
+/**
+ * Per-app post-processing prompts, first match wins.
+ */
+app_prompt_rules?: AppPromptRule[]; 
+/**
+ * Apply AI post-processing on the main transcribe shortcut too, so a
+ * single shortcut always gives cleaned-up text.
+ */
+auto_post_process?: boolean }
+/**
+ * Use a specific post-processing prompt when the focused app matches.
+ */
+export type AppPromptRule = { 
+/**
+ * Case-insensitive text matched against the app name or window title;
+ * `|` separates alternatives ("slack|discord").
+ */
+app_match: string; prompt_id: string }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
 export type AvailableAccelerators = { transcribe: string[]; ort: string[]; gpu_devices: GpuDeviceOption[] }
@@ -1189,6 +1235,15 @@ export type StreamWorkKind = "transcribing" | "polishing"
  * UI appearance mode. `System` follows the OS `prefers-color-scheme`; `Light`
  * and `Dark` force one of the two palettes Handy already ships.
  */
+/**
+ * A `from → to` substitution applied to every transcription. Used both for
+ * corrections learned from the user and for voice snippets.
+ */
+export type TextReplacement = { from: string; to: string; 
+/**
+ * True when it was learned from a correction rather than typed in.
+ */
+learned?: boolean }
 export type Theme = "system" | "light" | "dark"
 export type TranscribeAcceleratorSetting = "auto" | "cpu" | "gpu"
 export type TypingTool = "auto" | "wtype" | "kwtype" | "dotool" | "ydotool" | "xdotool"

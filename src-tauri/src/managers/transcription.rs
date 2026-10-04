@@ -1826,7 +1826,10 @@ fn post_process_transcription_text(
             settings.filler_word_removal_enabled,
         );
 
-        normalize_transcription_output(&without_fillers)
+        let normalized = normalize_transcription_output(&without_fillers);
+        // Learned corrections and voice snippets go last so their output is
+        // inserted exactly as the user wrote it.
+        crate::learning::apply_text_replacements(&normalized, &settings.text_replacements)
     })
 }
 

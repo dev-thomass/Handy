@@ -179,6 +179,10 @@
           "transcribe_with_post_process": {
             "name": "後處理快捷鍵",
             "description": "可選：專用快捷鍵，使用時一律對轉錄結果套用 AI 後處理"
+          },
+          "learn_correction": {
+            "name": "Learn Correction Shortcut",
+            "description": "After a dictation, select the word you corrected and press this shortcut: it is added to your words and the misheard version is fixed automatically next time."
           }
         },
         "errors": {
@@ -644,6 +648,40 @@
       "whatsNewUpdates": {
         "label": "顯示新功能",
         "description": "Handy 更新後顯示版本資訊"
+      }
+    },
+    "learning": {
+      "title": "Learning",
+      "replacements": {
+        "title": "Replacements & Snippets",
+        "description": "Replace a word or phrase in every transcription. Corrections you teach appear here. Use \\n in the replacement for a new line.",
+        "fromPlaceholder": "When I say…",
+        "toPlaceholder": "Write…",
+        "add": "Add",
+        "remove": "Remove {{from}}",
+        "learned": "learned",
+        "duplicate": "\"{{from}}\" already has a replacement"
+      },
+      "appPrompts": {
+        "title": "Prompts per App",
+        "description": "Use a different prompt depending on the app you dictate into. Matches the app name or window title; separate alternatives with |.",
+        "appPlaceholder": "slack|discord",
+        "promptPlaceholder": "Prompt",
+        "add": "Add",
+        "remove": "Remove rule for {{app}}",
+        "fallback": "Other apps use the selected prompt."
+      },
+      "autoPostProcess": {
+        "label": "Always Post-Process",
+        "description": "Apply AI post-processing with the main transcribe shortcut too, so one shortcut always gives clean text."
+      },
+      "toast": {
+        "learned": "Learned \"{{word}}\"",
+        "learnedFrom": "\"{{misheard}}\" will now be written \"{{word}}\"",
+        "failedTitle": "Nothing learned",
+        "noSelection": "Select the corrected word first, then press the shortcut.",
+        "copyFailed": "The selection could not be read in this app.",
+        "invalidSelection": "Select a single word or a short name (up to 4 words)."
       }
     }
   },

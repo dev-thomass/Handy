@@ -181,6 +181,35 @@ function App() {
     };
   }, [t]);
 
+  // Confirm what the "learn correction" shortcut taught, or why it couldn't.
+  useEffect(() => {
+    const learned = listen<{ word: string; misheard: string | null }>(
+      "correction-learned",
+      (event) => {
+        const { word, misheard } = event.payload;
+        toast.success(t("settings.learning.toast.learned", { word }), {
+          description: misheard
+            ? t("settings.learning.toast.learnedFrom", { word, misheard })
+            : undefined,
+        });
+      },
+    );
+    const failed = listen<string>("correction-learn-failed", (event) => {
+      const reasons: Record<string, string> = {
+        "no-selection": t("settings.learning.toast.noSelection"),
+        "copy-failed": t("settings.learning.toast.copyFailed"),
+        "invalid-selection": t("settings.learning.toast.invalidSelection"),
+      };
+      toast.error(t("settings.learning.toast.failedTitle"), {
+        description: reasons[event.payload],
+      });
+    });
+    return () => {
+      learned.then((fn) => fn());
+      failed.then((fn) => fn());
+    };
+  }, [t]);
+
   // Listen for transcription failures and show a toast.
   // The payload is the backend error message (also logged to handy.log).
   useEffect(() => {
