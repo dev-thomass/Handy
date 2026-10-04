@@ -10,7 +10,7 @@ interface CancelIconProps {
 const CancelIcon: React.FC<CancelIconProps> = ({
   width = 24,
   height = 24,
-  color = "#94A3B8",
+  color = "#818CF8",
   className = "",
 }) => {
   return (

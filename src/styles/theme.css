@@ -1,4 +1,4 @@
-/* Wisprfree colors: a sober slate palette instead of Handy's pink */
+/* Wisprfree colors: a soft indigo palette instead of Handy's pink */
 
 :root {
   /* Palette source of truth. Each themed color is defined once as a
@@ -6,13 +6,13 @@
      in App.css reference these, so a hex value lives in exactly one place. */
   --light-color-text: #0f0f0f;
   --light-color-background: #fbfbfb;
-  --light-color-logo-primary: #94a3b8;
-  --light-color-logo-stroke: #1e293b;
+  --light-color-logo-primary: #818cf8;
+  --light-color-logo-stroke: #312e81;
 
   --dark-color-text: #fbfbfb;
   --dark-color-background: #2c2b29;
-  --dark-color-logo-primary: #a3b1c2;
-  --dark-color-logo-stroke: #dbe2ea;
+  --dark-color-logo-primary: #a5b4fc;
+  --dark-color-logo-stroke: #e0e7ff;
 
   /* Semantic status colors. First used by SecureInputWarning; intended to
      replace the ad-hoc yellow-500/red-500 usages (e.g. ui/Alert.tsx) over
@@ -23,7 +23,7 @@
   --dark-color-error: #f87171;
 
   /* Tokens that do not change between light and dark */
-  --color-background-ui: #475569;
+  --color-background-ui: #4f46e5;
   --color-text-stroke: #f6f6f6;
   --color-mid-gray: #808080;
 
