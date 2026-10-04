@@ -50,13 +50,13 @@
      the card's max footprint (--ov-work-w for compact, --ov-open-w for Live),
      since the card is anchored flush to the screen edge in CSS. Keep overlay.rs
      in sync when these change. */
-  --ov-rest-w: 156px; /* resting compact pill (minimal, recording) -- roomy enough
+  --ov-rest-w: 116px; /* resting compact pill (minimal, recording) -- roomy enough
                          for the English working label before the grow starts */
-  --ov-pill-w: 168px; /* base width / Live pill before it opens or collapses */
-  --ov-work-w: 200px; /* working pill (transcribing / polishing) -- wide enough to
+  --ov-pill-w: 128px; /* base width / Live pill before it opens or collapses */
+  --ov-work-w: 164px; /* working pill (transcribing / polishing) -- wide enough to
                          center longer labels; shared by Live (collapsed) + minimal */
   --ov-open-w: 392px; /* Live panel, expanded */
-  --ov-base-h: 30px; /* control-row height (.sbase) */
+  --ov-base-h: 24px; /* control-row height (.sbase) */
   --ov-cap-max-h: 64px; /* max height of the scrolling live-text region */
 }
 @media (prefers-color-scheme: dark) {
@@ -110,6 +110,7 @@
   justify-content: center; /* horizontal centering, kept for both forms */
   align-items: flex-end; /* bottom placement: flush to the bottom edge */
   font-family: var(--s-font);
+  -webkit-font-smoothing: antialiased;
 }
 .ov-stage.top {
   align-items: flex-start; /* top placement: flush to the top edge */
@@ -178,7 +179,8 @@
   transition:
     width 460ms cubic-bezier(0.22, 1, 0.36, 1),
     border-radius 460ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform, width, opacity;
+  /* No `will-change: transform`: WebKit then rasterizes the card as a bitmap
+     and keeps it blurry on Retina screens after the pop-in. */
 }
 @keyframes scard-pop {
   from {
@@ -292,17 +294,17 @@
 .sbase {
   height: var(--ov-base-h);
   flex: none; /* the control row never squashes; only the text region gives */
-  padding: 0 10px;
+  padding: 0 7px;
   display: grid;
   /* Equal side columns (min 22px to hold the cancel button) keep the center item
      — waveform or label — centered whether the pill is at min width or content-
      sized. */
-  grid-template-columns: minmax(18px, 1fr) auto minmax(18px, 1fr);
+  grid-template-columns: minmax(15px, 1fr) auto minmax(15px, 1fr);
   align-items: center;
 }
 .sbase-l {
   display: flex;
-  padding-left: 5px;
+  padding-left: 4px;
   align-items: center;
   justify-self: start;
 }
@@ -313,8 +315,8 @@
   justify-self: end;
 }
 .sdot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   flex: none;
   box-sizing: border-box;
@@ -338,7 +340,7 @@
     box-shadow: 0 0 0 0 var(--s-accent-soft);
   }
   70% {
-    box-shadow: 0 0 0 7px transparent;
+    box-shadow: 0 0 0 5px transparent;
   }
 }
 .stimer {
@@ -359,15 +361,15 @@
 .swave {
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding-right: 8px;
-  height: 14px;
+  gap: 2px;
+  padding-right: 6px;
+  height: 11px;
   flex: none;
 }
 .swave i {
-  width: 3px;
+  width: 2px;
   min-height: 2px;
-  max-height: 14px;
+  max-height: 11px;
   border-radius: 2px;
   background: var(--s-accent);
   transition:
@@ -376,7 +378,7 @@
     opacity 180ms ease;
 }
 .swave.arming i {
-  height: 6px !important;
+  height: 5px !important;
   background: var(--s-muted);
   opacity: 0.35;
   animation: swave-arming 900ms ease-in-out infinite;
@@ -408,8 +410,8 @@
   }
 }
 .sx {
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
   flex: none;
   padding: 0;
@@ -428,8 +430,8 @@
     transform 100ms ease;
 }
 .sx svg {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   display: block;
 }
 .sx:hover {
@@ -443,10 +445,10 @@
 
 /* working state (transcribing / polishing) — spinner + label */
 .sspinner {
-  width: 11px;
-  height: 11px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  border: 2px solid var(--s-hair);
+  border: 1.5px solid var(--s-hair);
   border-top-color: var(--s-accent);
   animation: sspin 0.7s linear infinite;
   flex: none;
@@ -457,7 +459,7 @@
   }
 }
 .swork-label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--s-muted);
   white-space: nowrap;
   padding: 0 8px; /* breathing room from the spinner / cancel when content-sized */

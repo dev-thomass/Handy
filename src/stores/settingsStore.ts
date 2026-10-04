@@ -145,6 +145,8 @@ const settingUpdaters: {
     commands.updateAppPromptRules(value as AppPromptRule[]),
   auto_post_process: (value) =>
     commands.changeAutoPostProcessSetting(value as boolean),
+  auto_learn_corrections: (value) =>
+    commands.changeAutoLearnCorrectionsSetting(value as boolean),
   word_correction_threshold: (value) =>
     commands.changeWordCorrectionThresholdSetting(value as number),
   paste_delay_ms: (value) =>

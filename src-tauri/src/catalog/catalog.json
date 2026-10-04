@@ -35,8 +35,8 @@
         {"filename": "parakeet-unified-en-0.6b-F32.gguf", "quant": "F32", "size_bytes": 2473323520, "sha256": "81d3a8c7676324a4dae977dac0f5900dc1468755fdf3b5369261bb759f17fdf3"}
       ],
       "default_quant": "Q8_0",
-      "recommended": true,
-      "recommended_rank": 1
+      "recommended": false,
+      "recommended_rank": 10
     },
     {
       "id": "handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf",
@@ -69,7 +69,7 @@
       ],
       "default_quant": "Q8_0",
       "recommended": true,
-      "recommended_rank": 2
+      "recommended_rank": 4
     },
     {
       "id": "handy-computer/canary-180m-flash-gguf",
@@ -102,7 +102,7 @@
       ],
       "default_quant": "Q8_0",
       "recommended": true,
-      "recommended_rank": 3
+      "recommended_rank": 5
     },
     {
       "id": "handy-computer/cohere-transcribe-03-2026-gguf",
@@ -135,7 +135,7 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": true,
-      "recommended_rank": 4
+      "recommended_rank": 2
     },
     {
       "id": "handy-computer/whisper-medium-gguf",
@@ -167,8 +167,8 @@
         {"filename": "whisper-medium-F32.gguf", "quant": "F32", "size_bytes": 3057437088, "sha256": "d716aa436e8d1d3164898d1fd6f4bde0f7cbbb7059b8c276b18f78cbca2faf6b"}
       ],
       "default_quant": "Q8_0",
-      "recommended": true,
-      "recommended_rank": 5
+      "recommended": false,
+      "recommended_rank": 6
     },
     {
       "id": "handy-computer/Voxtral-Mini-4B-Realtime-2602-gguf",
@@ -201,7 +201,7 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": 6
+      "recommended_rank": 7
     },
     {
       "id": "handy-computer/parakeet-tdt-0.6b-v3-gguf",
@@ -233,8 +233,8 @@
         {"filename": "parakeet-tdt-0.6b-v3-F32.gguf", "quant": "F32", "size_bytes": 2508435616, "sha256": "bbd36acd8c6fbb817e658e3acc9f75002cb6a74932c687e74fefccfcc7b9f47e"}
       ],
       "default_quant": "Q8_0",
-      "recommended": false,
-      "recommended_rank": 7
+      "recommended": true,
+      "recommended_rank": 1
     },
     {
       "id": "handy-computer/parakeet-tdt-0.6b-v2-gguf",
@@ -267,7 +267,7 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": 8
+      "recommended_rank": null
     },
     {
       "id": "handy-computer/Qwen3-ASR-0.6B-gguf",
@@ -300,7 +300,7 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": 9
+      "recommended_rank": 8
     },
     {
       "id": "handy-computer/Fun-ASR-MLT-Nano-2512-gguf",
@@ -333,7 +333,7 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": 10
+      "recommended_rank": 9
     },
     {
       "id": "handy-computer/canary-1b-flash-gguf",
@@ -2101,8 +2101,8 @@
         {"filename": "whisper-large-v3-turbo-F16.gguf", "quant": "F16", "size_bytes": 1625935520, "sha256": "e1d0144e9afc9f479d9e51fc92c7dea9dc36059655eeb3819f16ad2de779046a"}
       ],
       "default_quant": "Q8_0",
-      "recommended": false,
-      "recommended_rank": null
+      "recommended": true,
+      "recommended_rank": 3
     },
     {
       "id": "handy-computer/Breeze-ASR-25-gguf",

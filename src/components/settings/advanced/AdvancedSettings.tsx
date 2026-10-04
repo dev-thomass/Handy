@@ -4,6 +4,7 @@ import { ShowOverlay } from "../ShowOverlay";
 import { ModelUnloadTimeoutSetting } from "../ModelUnloadTimeout";
 import { CustomWords } from "../CustomWords";
 import { TextReplacements } from "../TextReplacements";
+import { AutoLearnCorrections } from "../AutoLearnCorrections";
 import { ShortcutInput } from "../ShortcutInput";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { StartHidden } from "../StartHidden";
@@ -59,6 +60,7 @@ export const AdvancedSettings: React.FC = () => {
       </SettingsGroup>
 
       <SettingsGroup title={t("settings.learning.title")}>
+        <AutoLearnCorrections descriptionMode="tooltip" grouped />
         <ShortcutInput
           shortcutId="learn_correction"
           descriptionMode="tooltip"

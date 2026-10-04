@@ -560,6 +560,14 @@ pub struct AppSettings {
     /// single shortcut always gives cleaned-up text.
     #[serde(default)]
     pub auto_post_process: bool,
+    /// Watch the text field after a paste and learn the words the user
+    /// retypes (macOS, needs the Accessibility permission already granted).
+    #[serde(default = "default_auto_learn_corrections")]
+    pub auto_learn_corrections: bool,
+}
+
+fn default_auto_learn_corrections() -> bool {
+    true
 }
 
 fn default_model() -> String {
@@ -1042,6 +1050,7 @@ pub fn get_default_settings() -> AppSettings {
         text_replacements: Vec::new(),
         app_prompt_rules: Vec::new(),
         auto_post_process: false,
+        auto_learn_corrections: default_auto_learn_corrections(),
     }
 }
 
