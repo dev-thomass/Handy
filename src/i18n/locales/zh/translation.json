@@ -754,6 +754,7 @@
     "notice": {
       "learned": "Learned “{{word}}”",
       "copiedNoField": "No text field: copied, paste with ⌘V",
+      "noAccessCopied": "辅助功能权限已丢失：已复制，用 ⌘V 粘贴。点击修复",
       "pasteFailedCopied": "Couldn't paste: copied, paste with ⌘V",
       "pasteFailed": "Couldn't paste. Click for details",
       "transcriptionFailed": "Transcription failed. Click for details",

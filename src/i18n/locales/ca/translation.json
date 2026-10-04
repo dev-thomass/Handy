@@ -757,6 +757,7 @@
     "notice": {
       "learned": "Learned “{{word}}”",
       "copiedNoField": "No text field: copied, paste with ⌘V",
+      "noAccessCopied": "S'ha perdut l'accés d'Accessibilitat: copiat, enganxa amb ⌘V. Fes clic per arreglar-ho",
       "pasteFailedCopied": "Couldn't paste: copied, paste with ⌘V",
       "pasteFailed": "Couldn't paste. Click for details",
       "transcriptionFailed": "Transcription failed. Click for details",

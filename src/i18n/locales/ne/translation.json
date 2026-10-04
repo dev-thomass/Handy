@@ -757,6 +757,7 @@
     "notice": {
       "learned": "Learned “{{word}}”",
       "copiedNoField": "No text field: copied, paste with ⌘V",
+      "noAccessCopied": "पहुँचयोग्यता अनुमति हरायो: कपी गरियो, ⌘V ले टाँस्नुहोस्। सुधार्न क्लिक गर्नुहोस्",
       "pasteFailedCopied": "Couldn't paste: copied, paste with ⌘V",
       "pasteFailed": "Couldn't paste. Click for details",
       "transcriptionFailed": "Transcription failed. Click for details",

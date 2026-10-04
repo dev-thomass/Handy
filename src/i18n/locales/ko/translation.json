@@ -754,6 +754,7 @@
     "notice": {
       "learned": "Learned “{{word}}”",
       "copiedNoField": "No text field: copied, paste with ⌘V",
+      "noAccessCopied": "손쉬운 사용 권한 손실: 복사됨, ⌘V로 붙여넣기. 클릭하여 해결",
       "pasteFailedCopied": "Couldn't paste: copied, paste with ⌘V",
       "pasteFailed": "Couldn't paste. Click for details",
       "transcriptionFailed": "Transcription failed. Click for details",

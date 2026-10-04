@@ -784,12 +784,23 @@ impl ShortcutAction for TranscribeAction {
                                     // Nothing focused can take text: keep it on
                                     // the clipboard and say so, rather than
                                     // pasting into the void.
-                                    if auto_learn::focus_accepts_text() == Some(false) {
+                                    let target = auto_learn::focus_target();
+                                    debug!("Paste target: {:?}", target);
+                                    let skip_paste = match target {
+                                        auto_learn::FocusTarget::NoText => Some("copiedNoField"),
+                                        auto_learn::FocusTarget::NoAccess => Some("noAccessCopied"),
+                                        _ => None,
+                                    };
+                                    if let Some(key) = skip_paste {
                                         match clipboard::copy_text(&ah_clone, &final_text) {
                                             Ok(()) => show_notice(
                                                 &ah_clone,
-                                                NoticeKind::Info,
-                                                "copiedNoField",
+                                                if key == "noAccessCopied" {
+                                                    NoticeKind::Error
+                                                } else {
+                                                    NoticeKind::Info
+                                                },
+                                                key,
                                                 serde_json::json!({}),
                                                 true,
                                             ),

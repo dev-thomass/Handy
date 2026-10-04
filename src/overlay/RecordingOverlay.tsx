@@ -1,6 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { requestAccessibilityPermission } from "tauri-plugin-macos-permissions-api";
 import "./RecordingOverlay.css";
 import { commands, events } from "@/bindings";
 import type {
@@ -318,7 +319,11 @@ const RecordingOverlay: React.FC = () => {
           type="button"
           className={`scard compact snotice ${notice.kind}`}
           onClick={() => {
-            if (notice.kind === "error") commands.showMainWindowCommand();
+            if (notice.key === "noAccessCopied") {
+              requestAccessibilityPermission();
+            } else if (notice.kind === "error") {
+              commands.showMainWindowCommand();
+            }
             setIsVisible(false);
           }}
         >
