@@ -176,7 +176,7 @@ const RecordingOverlay: React.FC = () => {
         <i
           key={i}
           style={{
-            height: `${Math.max(3, Math.min(18, 3 + Math.pow(v, 0.7) * 15))}px`,
+            height: `${Math.max(2, Math.min(14, 2 + Math.pow(v, 0.7) * 12))}px`,
           }}
         />
       ))}
