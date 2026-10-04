@@ -754,6 +754,7 @@
     "notice": {
       "learned": "« {{word}} » appris",
       "copiedNoField": "Pas de champ de texte : copié, colle avec ⌘V",
+      "noAccessCopied": "Accès Accessibilité perdu : copié, colle avec ⌘V. Clique pour réparer",
       "pasteFailedCopied": "Collage impossible : texte copié, colle avec ⌘V",
       "pasteFailed": "Collage impossible. Clique pour voir",
       "transcriptionFailed": "La transcription a échoué. Clique pour voir",

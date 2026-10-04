@@ -33,7 +33,7 @@ Avec cette option, le raccourci principal applique aussi le post-traitement IA. 
 
 ### Une bulle qui te parle
 
-La bulle d'enregistrement affiche aussi de courts messages : un mot appris, « Pas de champ de texte : copié, colle avec ⌘V » quand tu dictes sans curseur dans un champ, et les erreurs (micro refusé ou absent, collage impossible, modèle qui ne charge pas). Un clic sur une erreur ouvre les réglages ; un clic sur un autre message le ferme.
+La bulle d'enregistrement affiche aussi de courts messages : un mot appris, « Pas de champ de texte : copié, colle avec ⌘V » quand tu dictes sans curseur dans un champ (bureau, page web, liste…), « Accès Accessibilité perdu » si macOS a retiré l'autorisation après une mise à jour (le texte est copié aussi ; un clic ouvre les réglages, retire puis remets Wisprfree dans la liste), et les erreurs (micro refusé ou absent, collage impossible, modèle qui ne charge pas). Un clic sur une erreur ouvre les réglages ; un clic sur un autre message le ferme.
 
 ### Autres changements
 

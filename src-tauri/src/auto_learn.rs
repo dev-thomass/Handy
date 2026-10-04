@@ -161,15 +161,28 @@ where
     });
 }
 
-/// Whether the focused UI element can take text. `None` when unknown
-/// (not macOS, or Accessibility unavailable): callers should paste as usual.
-pub fn focus_accepts_text() -> Option<bool> {
-    platform::focus_accepts_text()
+/// What the focused UI element is, as far as pasting goes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FocusTarget {
+    /// An editable text field: paste.
+    Text,
+    /// Something focused, but nothing that takes text (desktop, a web page,
+    /// a list…): pasting would go nowhere.
+    NoText,
+    /// The Accessibility permission is missing (or went stale after an
+    /// update), so a simulated ⌘V would be silently dropped.
+    NoAccess,
+    /// Can't tell (not macOS, or the app doesn't answer): paste as usual.
+    Unknown,
+}
+
+pub fn focus_target() -> FocusTarget {
+    platform::focus_target()
 }
 
 #[cfg(target_os = "macos")]
 mod platform {
-    use super::find_corrections;
+    use super::{find_corrections, FocusTarget};
     use crate::learning::LearnedCorrection;
     use std::ffi::c_void;
     use std::time::{Duration, Instant};
@@ -180,6 +193,12 @@ mod platform {
 
     #[link(name = "ApplicationServices", kind = "framework")]
     extern "C" {
+        fn AXIsProcessTrusted() -> u8;
+        fn AXUIElementIsAttributeSettable(
+            element: AXUIElementRef,
+            attribute: CFStringRef,
+            settable: *mut u8,
+        ) -> i32;
         fn AXUIElementCreateSystemWide() -> AXUIElementRef;
         fn AXUIElementCopyAttributeValue(
             element: AXUIElementRef,
@@ -261,28 +280,47 @@ mod platform {
     }
 
     const TEXT_ROLES: [&str; 4] = ["AXTextField", "AXTextArea", "AXComboBox", "AXSearchField"];
+    const AX_ERROR_API_DISABLED: i32 = -25211;
 
-    pub fn focus_accepts_text() -> Option<bool> {
-        // Without Accessibility nothing can be read: stay out of the way.
-        let system = Cf(unsafe { AXUIElementCreateSystemWide() });
-        let mut probe: CFTypeRef = std::ptr::null();
-        let attribute = cf_string("AXFocusedApplication");
-        let err = unsafe { AXUIElementCopyAttributeValue(system.0, attribute.0, &mut probe) };
-        if err != 0 || probe.is_null() {
-            return None;
+    fn is_settable(element: CFTypeRef, name: &str) -> bool {
+        let attribute = cf_string(name);
+        let mut settable: u8 = 0;
+        let err = unsafe { AXUIElementIsAttributeSettable(element, attribute.0, &mut settable) };
+        err == 0 && settable != 0
+    }
+
+    pub fn focus_target() -> FocusTarget {
+        if unsafe { AXIsProcessTrusted() } == 0 {
+            return FocusTarget::NoAccess;
         }
-        drop(Cf(probe));
+        let system = Cf(unsafe { AXUIElementCreateSystemWide() });
+        let attribute = cf_string("AXFocusedUIElement");
+        let mut focused: CFTypeRef = std::ptr::null();
+        let err = unsafe { AXUIElementCopyAttributeValue(system.0, attribute.0, &mut focused) };
+        if err == AX_ERROR_API_DISABLED {
+            return FocusTarget::NoAccess;
+        }
+        if err != 0 || focused.is_null() {
+            // No focused element at all: the desktop, or an app with no
+            // window. Pasting there does nothing.
+            return FocusTarget::NoText;
+        }
+        let element = Cf(focused);
 
-        let Some(element) = focused_element() else {
-            return Some(false);
-        };
         let role = copy_attribute(element.0, "AXRole").and_then(|r| to_string(&r));
         if role.as_deref().is_some_and(|r| TEXT_ROLES.contains(&r)) {
-            return Some(true);
+            return FocusTarget::Text;
         }
-        // Rich editors (web contenteditable, Slack, Notion…) expose a text
-        // selection even when their role is generic.
-        Some(copy_attribute(element.0, "AXSelectedTextRange").is_some())
+        // Rich editors (contenteditable in browsers, Slack, Notion…) either
+        // have a writable value or sit inside an editable ancestor. A plain
+        // web page, window or list only exposes a selection range, which is
+        // not enough: that is what made pastes vanish into the void.
+        if is_settable(element.0, "AXValue")
+            || copy_attribute(element.0, "AXEditableAncestor").is_some()
+        {
+            return FocusTarget::Text;
+        }
+        FocusTarget::NoText
     }
 
     fn read_value(element: &Cf) -> Option<String> {
@@ -338,10 +376,11 @@ mod platform {
 
 #[cfg(not(target_os = "macos"))]
 mod platform {
+    use super::FocusTarget;
     use crate::learning::LearnedCorrection;
 
-    pub fn focus_accepts_text() -> Option<bool> {
-        None
+    pub fn focus_target() -> FocusTarget {
+        FocusTarget::Unknown
     }
 
     pub fn watch(
