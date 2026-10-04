@@ -1,4 +1,3 @@
-use crate::utils;
 use log::{debug, warn};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -92,6 +91,26 @@ pub struct LLMPrompt {
     pub id: String,
     pub name: String,
     pub prompt: String,
+}
+
+/// A `from → to` substitution applied to every transcription. Used both for
+/// corrections learned from the user and for voice snippets.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Type)]
+pub struct TextReplacement {
+    pub from: String,
+    pub to: String,
+    /// True when it was learned from a correction rather than typed in.
+    #[serde(default)]
+    pub learned: bool,
+}
+
+/// Use a specific post-processing prompt when the focused app matches.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Type)]
+pub struct AppPromptRule {
+    /// Case-insensitive text matched against the app name or window title;
+    /// `|` separates alternatives ("slack|discord").
+    pub app_match: String,
+    pub prompt_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
@@ -530,6 +549,16 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    /// Learned corrections and voice snippets, applied to every transcription.
+    #[serde(default)]
+    pub text_replacements: Vec<TextReplacement>,
+    /// Per-app post-processing prompts, first match wins.
+    #[serde(default)]
+    pub app_prompt_rules: Vec<AppPromptRule>,
+    /// Apply AI post-processing on the main transcribe shortcut too, so a
+    /// single shortcut always gives cleaned-up text.
+    #[serde(default)]
+    pub auto_post_process: bool,
 }
 
 fn default_model() -> String {
@@ -929,6 +958,22 @@ pub fn get_default_settings() -> AppSettings {
         },
     );
 
+    #[cfg(target_os = "macos")]
+    let default_learn_shortcut = "ctrl+option+l";
+    #[cfg(not(target_os = "macos"))]
+    let default_learn_shortcut = "ctrl+shift+l";
+    bindings.insert(
+        "learn_correction".to_string(),
+        ShortcutBinding {
+            id: "learn_correction".to_string(),
+            name: "Learn Correction".to_string(),
+            description: "Select a word you corrected and press this shortcut to teach it."
+                .to_string(),
+            default_binding: default_learn_shortcut.to_string(),
+            current_binding: default_learn_shortcut.to_string(),
+        },
+    );
+
     AppSettings {
         settings_schema_version: default_settings_schema_version(),
         bindings,
@@ -993,6 +1038,9 @@ pub fn get_default_settings() -> AppSettings {
         vad_enabled: default_vad_enabled(),
         vad_backend: VadBackend::default(),
         overlay_style: default_overlay_style(),
+        text_replacements: Vec::new(),
+        app_prompt_rules: Vec::new(),
+        auto_post_process: false,
     }
 }
 
@@ -1231,10 +1279,11 @@ fn apply_settings_migrations(
 /// Update checks are forced off (without touching the persisted setting) when
 /// `HANDY_DISABLE_UPDATER` is set — e.g. by the Nix package, since self-update
 /// can't work against an immutable /nix/store install.
+///
+/// Wisprfree always forces them off: it has no update feed of its own yet, and
+/// the configured feed is upstream Handy's, which would replace this fork.
 pub fn update_checks_forced_disabled() -> bool {
-    use std::sync::OnceLock;
-    static IS_UPDATER_DISABLED: OnceLock<bool> = OnceLock::new();
-    *IS_UPDATER_DISABLED.get_or_init(|| utils::env_flag_enabled("HANDY_DISABLE_UPDATER"))
+    true
 }
 
 /// Effective updater state: the user's stored preference, overridden to `false`

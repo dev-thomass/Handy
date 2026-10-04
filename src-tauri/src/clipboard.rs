@@ -117,6 +117,91 @@ fn paste_via_clipboard(
     })
 }
 
+/// Copies the focused app's current selection and returns it, restoring the
+/// clipboard afterwards. `Ok(None)` means nothing was selected.
+pub fn copy_selection(app_handle: &AppHandle) -> Result<Option<String>, String> {
+    let clipboard = app_handle.clipboard();
+    let saved_text = clipboard.read_text().ok().filter(|t| !t.is_empty());
+
+    // Clear first so a copy that does nothing isn't read as the old content.
+    let _ = clipboard.clear();
+
+    let copy_result = (|| -> Result<(), String> {
+        #[cfg(target_os = "linux")]
+        if try_send_copy_linux()? {
+            return Ok(());
+        }
+        with_enigo(app_handle, input::send_copy_ctrl_c)
+    })();
+
+    let copied = if copy_result.is_ok() {
+        // Give the target app a moment to serve the copy.
+        let mut copied = None;
+        for _ in 0..6 {
+            std::thread::sleep(Duration::from_millis(50));
+            copied = clipboard.read_text().ok().filter(|t| !t.trim().is_empty());
+            if copied.is_some() {
+                break;
+            }
+        }
+        copied
+    } else {
+        None
+    };
+
+    match saved_text {
+        Some(text) => {
+            let _ = write_text_to_clipboard(app_handle, &text);
+        }
+        None => {
+            let _ = clipboard.clear();
+        }
+    }
+
+    copy_result.map(|()| copied)
+}
+
+/// Sends the copy shortcut with a Linux-native tool. Returns `Ok(false)` to
+/// fall back to enigo.
+#[cfg(target_os = "linux")]
+fn try_send_copy_linux() -> Result<bool, String> {
+    let run = |cmd: &str, args: &[&str]| -> Result<bool, String> {
+        let output = Command::new(cmd)
+            .args(args)
+            .output()
+            .map_err(|e| format!("Failed to execute {}: {}", cmd, e))?;
+        if output.status.success() {
+            Ok(true)
+        } else {
+            Err(format!(
+                "{} failed: {}",
+                cmd,
+                String::from_utf8_lossy(&output.stderr)
+            ))
+        }
+    };
+
+    if is_wayland() {
+        if !is_kde_wayland() && !is_gnome_wayland() && is_wtype_available() {
+            return run("wtype", &["-M", "ctrl", "-k", "c", "-m", "ctrl"]);
+        }
+        if is_dotool_available() {
+            return run("sh", &["-c", "echo key ctrl+c | dotool"]);
+        }
+        if is_ydotool_available() {
+            return match detect_ydotool_key_syntax() {
+                YdotoolKeySyntax::Symbolic => run("ydotool", &["key", "ctrl+c"]),
+                YdotoolKeySyntax::RawKeycodes => {
+                    run("ydotool", &["key", "29:1", "46:1", "46:0", "29:0"])
+                }
+            };
+        }
+    } else if is_xdotool_available() {
+        return run("xdotool", &["key", "--clearmodifiers", "ctrl+c"]);
+    }
+    Ok(false)
+}
+
 /// Attempts to send a key combination using Linux-native tools.
 /// Returns `Ok(true)` if a native tool handled it, `Ok(false)` to fall back to enigo.
 #[cfg(target_os = "linux")]

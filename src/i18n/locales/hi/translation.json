@@ -179,6 +179,10 @@
           "transcribe_with_post_process": {
             "name": "पोस्ट-प्रोसेसिंग हॉटकी",
             "description": "वैकल्पिक: एक अलग हॉटकी जो आपके ट्रांसक्रिप्शन पर हमेशा AI पोस्ट-प्रोसेसिंग लागू करती है."
+          },
+          "learn_correction": {
+            "name": "Learn Correction Shortcut",
+            "description": "After a dictation, select the word you corrected and press this shortcut: it is added to your words and the misheard version is fixed automatically next time."
           }
         },
         "errors": {
@@ -644,6 +648,40 @@
           "description": "डिवाइस पर ही मशीन लर्निंग इन्फ़रेंस के लिए हाई-परफ़ॉर्मेंस टेंसर लाइब्रेरी",
           "details": "Handy का लोकल स्पीच-टू-टेक्स्ट transcribe.cpp और ggml पर आधारित है. Georgi Gerganov और योगदान देने वालों के शानदार काम के लिए धन्यवाद."
         }
+      }
+    },
+    "learning": {
+      "title": "Learning",
+      "replacements": {
+        "title": "Replacements & Snippets",
+        "description": "Replace a word or phrase in every transcription. Corrections you teach appear here. Use \\n in the replacement for a new line.",
+        "fromPlaceholder": "When I say…",
+        "toPlaceholder": "Write…",
+        "add": "Add",
+        "remove": "Remove {{from}}",
+        "learned": "learned",
+        "duplicate": "\"{{from}}\" already has a replacement"
+      },
+      "appPrompts": {
+        "title": "Prompts per App",
+        "description": "Use a different prompt depending on the app you dictate into. Matches the app name or window title; separate alternatives with |.",
+        "appPlaceholder": "slack|discord",
+        "promptPlaceholder": "Prompt",
+        "add": "Add",
+        "remove": "Remove rule for {{app}}",
+        "fallback": "Other apps use the selected prompt."
+      },
+      "autoPostProcess": {
+        "label": "Always Post-Process",
+        "description": "Apply AI post-processing with the main transcribe shortcut too, so one shortcut always gives clean text."
+      },
+      "toast": {
+        "learned": "Learned \"{{word}}\"",
+        "learnedFrom": "\"{{misheard}}\" will now be written \"{{word}}\"",
+        "failedTitle": "Nothing learned",
+        "noSelection": "Select the corrected word first, then press the shortcut.",
+        "copyFailed": "The selection could not be read in this app.",
+        "invalidSelection": "Select a single word or a short name (up to 4 words)."
       }
     }
   },

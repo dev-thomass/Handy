@@ -199,6 +199,10 @@
           "transcribe_with_post_process": {
             "name": "Raccourci de post-traitement",
             "description": "Facultatif : Un raccourci dédié qui applique toujours le post-traitement IA à votre transcription."
+          },
+          "learn_correction": {
+            "name": "Raccourci « apprendre une correction »",
+            "description": "Après une dictée, sélectionne le mot que tu as corrigé et appuie sur ce raccourci : il est ajouté à tes mots et la version mal entendue sera corrigée automatiquement la prochaine fois."
           }
         },
         "errors": {
@@ -644,6 +648,40 @@
       "whatsNewUpdates": {
         "label": "Afficher les nouveautés",
         "description": "Afficher les notes de version après les mises à jour de Handy"
+      }
+    },
+    "learning": {
+      "title": "Apprentissage",
+      "replacements": {
+        "title": "Remplacements et snippets",
+        "description": "Remplace un mot ou une phrase dans chaque transcription. Les corrections apprises apparaissent ici. Mets \\n dans le remplacement pour un retour à la ligne.",
+        "fromPlaceholder": "Quand je dis…",
+        "toPlaceholder": "Écrire…",
+        "add": "Ajouter",
+        "remove": "Supprimer {{from}}",
+        "learned": "appris",
+        "duplicate": "\"{{from}}\" a déjà un remplacement"
+      },
+      "appPrompts": {
+        "title": "Prompts par application",
+        "description": "Utilise un prompt différent selon l'application où tu dictes. Compare avec le nom de l'app ou le titre de la fenêtre ; sépare les alternatives par |.",
+        "appPlaceholder": "slack|discord",
+        "promptPlaceholder": "Prompt",
+        "add": "Ajouter",
+        "remove": "Supprimer la règle pour {{app}}",
+        "fallback": "Les autres applications utilisent le prompt sélectionné."
+      },
+      "autoPostProcess": {
+        "label": "Toujours post-traiter",
+        "description": "Applique aussi le post-traitement IA avec le raccourci principal : un seul raccourci donne toujours un texte propre."
+      },
+      "toast": {
+        "learned": "« {{word}} » appris",
+        "learnedFrom": "« {{misheard}} » sera désormais écrit « {{word}} »",
+        "failedTitle": "Rien appris",
+        "noSelection": "Sélectionne d'abord le mot corrigé, puis appuie sur le raccourci.",
+        "copyFailed": "Impossible de lire la sélection dans cette application.",
+        "invalidSelection": "Sélectionne un seul mot ou un nom court (4 mots maximum)."
       }
     }
   },

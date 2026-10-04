@@ -2,12 +2,15 @@
 use crate::apple_intelligence;
 use crate::audio_feedback::{play_feedback_sound, play_feedback_sound_blocking, SoundType};
 use crate::audio_toolkit::{is_microphone_access_denied, is_no_input_device_error, VadPolicy};
+use crate::learning;
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::history::HistoryManager;
 use crate::managers::model::ModelManager;
 use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
-use crate::settings::{get_settings, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID};
+use crate::settings::{
+    get_settings, AppSettings, LLMPrompt, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID,
+};
 use crate::shortcut;
 use crate::tray::{set_tray_state, TrayIconState};
 use crate::utils::{
@@ -118,6 +121,26 @@ fn should_use_streaming_overlay(style: OverlayStyle, is_streaming: bool) -> bool
     style == OverlayStyle::Live && is_streaming
 }
 
+/// The prompt to post-process with: the first per-app rule matching the app
+/// focused when recording started, otherwise the selected prompt.
+fn select_post_process_prompt(settings: &AppSettings) -> Option<&LLMPrompt> {
+    let find = |id: &str| settings.post_process_prompts.iter().find(|p| p.id == id);
+
+    if let Some(app) = learning::recording_app() {
+        if let Some(id) = learning::prompt_id_for_app(&settings.app_prompt_rules, &app) {
+            if let Some(prompt) = find(id) {
+                debug!("Using prompt '{}' for app '{}'", prompt.name, app.label());
+                return Some(prompt);
+            }
+        }
+    }
+
+    settings
+        .post_process_selected_prompt_id
+        .as_deref()
+        .and_then(find)
+}
+
 async fn post_process_transcription(settings: &AppSettings, transcription: &str) -> Option<String> {
     if is_blank_transcription(transcription) {
         debug!("Post-processing skipped because the transcription is empty");
@@ -146,33 +169,21 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
         return None;
     }
 
-    let selected_prompt_id = match &settings.post_process_selected_prompt_id {
-        Some(id) => id.clone(),
-        None => {
-            debug!("Post-processing skipped because no prompt is selected");
-            return None;
-        }
+    let Some(selected_prompt) = select_post_process_prompt(settings) else {
+        debug!("Post-processing skipped because no prompt is selected or found");
+        return None;
     };
 
-    let prompt = match settings
-        .post_process_prompts
-        .iter()
-        .find(|prompt| prompt.id == selected_prompt_id)
-    {
-        Some(prompt) => prompt.prompt.clone(),
-        None => {
-            debug!(
-                "Post-processing skipped because prompt '{}' was not found",
-                selected_prompt_id
-            );
-            return None;
-        }
-    };
-
-    if prompt.trim().is_empty() {
+    if selected_prompt.prompt.trim().is_empty() {
         debug!("Post-processing skipped because the selected prompt is empty");
         return None;
     }
+
+    let prompt = learning::personalize_prompt(
+        &selected_prompt.prompt,
+        learning::recording_app().as_ref(),
+        &settings.custom_words,
+    );
 
     debug!(
         "Starting LLM post-processing with provider '{}' (model: {})",
@@ -365,14 +376,8 @@ pub(crate) async fn process_transcription_output(
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
 
-            if let Some(prompt_id) = &settings.post_process_selected_prompt_id {
-                if let Some(prompt) = settings
-                    .post_process_prompts
-                    .iter()
-                    .find(|prompt| &prompt.id == prompt_id)
-                {
-                    post_process_prompt = Some(prompt.prompt.clone());
-                }
+            if let Some(prompt) = select_post_process_prompt(&settings) {
+                post_process_prompt = Some(prompt.prompt.clone());
             }
         }
     }
@@ -388,6 +393,10 @@ impl ShortcutAction for TranscribeAction {
     fn start(&self, app: &AppHandle, binding_id: &str, _shortcut_str: &str) {
         let start_time = Instant::now();
         debug!("TranscribeAction::start called for binding: {}", binding_id);
+
+        // Remember the focused app before any overlay appears, so the
+        // post-processing prompt can be picked for it.
+        learning::capture_recording_app();
 
         // Load model in the background
         let tm = app.state::<Arc<TranscriptionManager>>();
@@ -600,7 +609,10 @@ impl ShortcutAction for TranscribeAction {
         play_feedback_sound(app, SoundType::Stop);
 
         let binding_id = binding_id.to_string(); // Clone binding_id for the async task
-        let post_process = self.post_process;
+        let post_process = self.post_process || {
+            let settings = get_settings(app);
+            settings.auto_post_process && settings.post_process_enabled
+        };
         let cancel_generation = rm.cancel_generation();
 
         tauri::async_runtime::spawn(async move {
@@ -754,6 +766,7 @@ impl ShortcutAction for TranscribeAction {
                                         return;
                                     }
 
+                                    learning::set_last_output(&final_text);
                                     match utils::paste(final_text, ah_clone.clone()) {
                                         Ok(()) => debug!(
                                             "Text pasted successfully in {:?}",
@@ -857,6 +870,93 @@ impl ShortcutAction for TestAction {
     }
 }
 
+// Learn Correction Action
+struct LearnCorrectionAction;
+
+impl ShortcutAction for LearnCorrectionAction {
+    fn start(&self, _app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {
+        // Learning runs on release, once the shortcut's modifiers are up, so
+        // the simulated copy isn't mixed with them.
+    }
+
+    fn stop(&self, app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {
+        let app = app.clone();
+        std::thread::spawn(move || learn_from_selection(&app));
+    }
+}
+
+#[derive(Clone, serde::Serialize)]
+struct CorrectionLearnedEvent {
+    word: String,
+    misheard: Option<String>,
+}
+
+fn learn_from_selection(app: &AppHandle) {
+    // Let the user finish releasing the shortcut keys.
+    std::thread::sleep(Duration::from_millis(150));
+
+    let selection = match crate::clipboard::copy_selection(app) {
+        Ok(Some(text)) => text,
+        Ok(None) => {
+            debug!("Learn correction: nothing selected");
+            let _ = app.emit("correction-learn-failed", "no-selection");
+            return;
+        }
+        Err(e) => {
+            warn!("Learn correction: could not read the selection: {}", e);
+            let _ = app.emit("correction-learn-failed", "copy-failed");
+            return;
+        }
+    };
+
+    let previous = learning::last_output().or_else(|| {
+        app.state::<Arc<HistoryManager>>()
+            .get_latest_completed_entry()
+            .ok()
+            .flatten()
+            .map(|entry| {
+                entry
+                    .post_processed_text
+                    .unwrap_or(entry.transcription_text)
+            })
+    });
+
+    let Some(learned) = learning::learn_correction(previous.as_deref().unwrap_or(""), &selection)
+    else {
+        debug!("Learn correction: selection is not a word or short phrase");
+        let _ = app.emit("correction-learn-failed", "invalid-selection");
+        return;
+    };
+
+    let mut settings = get_settings(app);
+    let changed = learning::apply_learned_correction(
+        &learned,
+        &mut settings.custom_words,
+        &mut settings.text_replacements,
+    );
+    if changed {
+        crate::settings::write_settings(app, settings);
+        // The settings window re-fetches everything on this event.
+        let _ = app.emit(
+            "settings-changed",
+            serde_json::json!({ "setting": "text_replacements" }),
+        );
+    }
+    debug!(
+        "Learned correction: '{}' (misheard: {:?})",
+        utils::redact_text(&learned.word),
+        learned.misheard.as_deref().map(utils::redact_text)
+    );
+    play_feedback_sound(app, SoundType::Stop);
+    let _ = app.emit(
+        "correction-learned",
+        CorrectionLearnedEvent {
+            word: learned.word,
+            misheard: learned.misheard,
+        },
+    );
+}
+
 // Static Action Map
 pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::new(|| {
     let mut map = HashMap::new();
@@ -873,6 +973,10 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
     map.insert(
         "cancel".to_string(),
         Arc::new(CancelAction) as Arc<dyn ShortcutAction>,
+    );
+    map.insert(
+        "learn_correction".to_string(),
+        Arc::new(LearnCorrectionAction) as Arc<dyn ShortcutAction>,
     );
     map.insert(
         "test".to_string(),

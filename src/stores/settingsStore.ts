@@ -2,12 +2,14 @@ import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { listen } from "@tauri-apps/api/event";
 import type {
+  AppPromptRule,
   AppSettings as Settings,
   AudioDevice,
   ChineseScript,
   TranscribeAcceleratorSetting,
   OrtAcceleratorSetting,
   ShortcutActivation,
+  TextReplacement,
   VadBackend,
 } from "@/bindings";
 import { commands } from "@/bindings";
@@ -137,6 +139,12 @@ const settingUpdaters: {
     commands.changeOverlayPositionSetting(value as string),
   debug_mode: (value) => commands.changeDebugModeSetting(value as boolean),
   custom_words: (value) => commands.updateCustomWords(value as string[]),
+  text_replacements: (value) =>
+    commands.updateTextReplacements(value as TextReplacement[]),
+  app_prompt_rules: (value) =>
+    commands.updateAppPromptRules(value as AppPromptRule[]),
+  auto_post_process: (value) =>
+    commands.changeAutoPostProcessSetting(value as boolean),
   word_correction_threshold: (value) =>
     commands.changeWordCorrectionThresholdSetting(value as number),
   paste_delay_ms: (value) =>
