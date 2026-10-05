@@ -6,7 +6,7 @@ Wisprfree est un fork de [Handy](https://github.com/cjpais/Handy) (licence MIT) 
 
 ### Apprendre de tes corrections, tout seul (Réglages > Avancé > Apprentissage)
 
-Après chaque dictée, Wisprfree garde un œil sur le champ où le texte a été collé. Si tu retapes un mot mal compris (« Tomas » → « Thomas »), il l'apprend dès que tu as fini ou que tu changes de champ, et l'écrit correctement la fois suivante. Il ne retient que les mots qui ressemblent à l'original : une phrase réécrite, un mot ajouté ou supprimé ne sont pas appris. Ça demande l'autorisation d'Accessibilité, et ça marche dans les apps qui donnent accès à leurs champs de texte (la plupart des apps Mac, les navigateurs, Slack, Notes…). Tu peux le couper avec « Apprendre de mes corrections ».
+Après chaque dictée, Wisprfree garde un œil sur le champ où le texte a été collé. Si tu retapes un mot mal compris (« Tomas » → « Thomas »), il l'apprend dès que tu as fini ou que tu changes de champ, et l'écrit correctement la fois suivante. Il ne retient que les mots qui ressemblent à l'original : une phrase réécrite, un mot ajouté ou supprimé ne sont pas appris. Ça demande l'autorisation d'Accessibilité, et ça marche dans les apps qui donnent accès à leurs champs de texte (la plupart des apps Mac, les navigateurs, Slack, Notes…). Tu peux le couper avec « Apprendre de mes corrections ». Il apprend aussi si tu corriges puis envoies tout de suite avec Entrée, et marche dans Chrome et les apps Electron (Slack, Notion, Discord…). Le « Journal d'apprentissage » (Réglages › Avancé › Apprentissage) montre, pour chaque dictée récente, ce qui a été appris et pourquoi une correction ne l'a pas été ; le bouton « Copier » permet de l'envoyer pour diagnostic.
 
 ### Apprendre une correction avec un raccourci
 

@@ -928,6 +928,19 @@ pub fn change_auto_learn_corrections_setting(app: AppHandle, enabled: bool) -> R
     Ok(())
 }
 
+/// The auto-learn journal, newest first.
+#[tauri::command]
+#[specta::specta]
+pub fn get_auto_learn_log() -> Vec<crate::auto_learn::AutoLearnLogEntry> {
+    crate::auto_learn::log_entries()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn clear_auto_learn_log() {
+    crate::auto_learn::clear_log()
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn change_word_correction_threshold_setting(

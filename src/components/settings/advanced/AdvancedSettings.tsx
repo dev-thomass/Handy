@@ -5,6 +5,7 @@ import { ModelUnloadTimeoutSetting } from "../ModelUnloadTimeout";
 import { CustomWords } from "../CustomWords";
 import { TextReplacements } from "../TextReplacements";
 import { AutoLearnCorrections } from "../AutoLearnCorrections";
+import { AutoLearnLog } from "../AutoLearnLog";
 import { ShortcutInput } from "../ShortcutInput";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { StartHidden } from "../StartHidden";
@@ -68,6 +69,7 @@ export const AdvancedSettings: React.FC = () => {
         />
         <CustomWords descriptionMode="tooltip" grouped />
         <TextReplacements descriptionMode="tooltip" grouped />
+        <AutoLearnLog descriptionMode="tooltip" grouped />
       </SettingsGroup>
 
       <SettingsGroup title={t("settings.advanced.groups.history")}>

@@ -792,6 +792,14 @@ impl ShortcutAction for TranscribeAction {
                                         _ => None,
                                     };
                                     if let Some(key) = skip_paste {
+                                        if get_settings(&ah_clone).auto_learn_corrections {
+                                            auto_learn::log_event(
+                                                key,
+                                                auto_learn::focused_app_name(),
+                                                None,
+                                                None,
+                                            );
+                                        }
                                         match clipboard::copy_text(&ah_clone, &final_text) {
                                             Ok(()) => show_notice(
                                                 &ah_clone,
@@ -995,20 +1003,31 @@ fn learn_from_selection(app: &AppHandle) {
         return;
     };
 
-    fold_corrections(app, vec![learned]);
+    fold_corrections(app, vec![learned], None);
     play_feedback_sound(app, SoundType::Stop);
 }
 
 /// Add learned corrections to the vocabulary and tell the UI about each one.
-fn fold_corrections(app: &AppHandle, corrections: Vec<learning::LearnedCorrection>) {
+fn fold_corrections(
+    app: &AppHandle,
+    corrections: Vec<learning::LearnedCorrection>,
+    target_app: Option<String>,
+) {
     let mut settings = get_settings(app);
     let mut changed = false;
     for learned in &corrections {
-        changed |= learning::apply_learned_correction(
+        let new = learning::apply_learned_correction(
             learned,
             &mut settings.custom_words,
             &mut settings.text_replacements,
         );
+        auto_learn::log_event(
+            if new { "learned" } else { "alreadyKnown" },
+            target_app.clone(),
+            learned.misheard.as_deref(),
+            Some(&learned.word),
+        );
+        changed |= new;
     }
     if changed {
         crate::settings::write_settings(app, settings);
@@ -1048,9 +1067,9 @@ fn watch_for_corrections(app: &AppHandle, pasted: &str) {
         return;
     }
     let app = app.clone();
-    auto_learn::watch_after_paste(pasted.to_string(), move |corrections| {
+    auto_learn::watch_after_paste(pasted.to_string(), move |corrections, target_app| {
         if get_settings(&app).auto_learn_corrections {
-            fold_corrections(&app, corrections);
+            fold_corrections(&app, corrections, target_app);
         }
     });
 }

@@ -686,6 +686,29 @@
         "noSelection": "Sélectionne d'abord le mot corrigé, puis appuie sur le raccourci.",
         "copyFailed": "Impossible de lire la sélection dans cette application.",
         "invalidSelection": "Sélectionne un seul mot ou un nom court (4 mots maximum)."
+      },
+      "autoLearnLog": {
+        "title": "Journal d'apprentissage",
+        "description": "Ce que l'apprentissage auto a vu après chaque dictée récente, et pourquoi il a appris un mot ou non. Utile pour comprendre une correction ratée.",
+        "show": "Afficher",
+        "hide": "Masquer",
+        "copy": "Copier",
+        "clear": "Effacer",
+        "copied": "Journal copié",
+        "empty": "Rien pour l'instant. Dicte, puis corrige un mot dans le texte collé.",
+        "codes": {
+          "learned": "Appris : {{misheard}} → {{word}}",
+          "alreadyKnown": "Déjà connu : {{misheard}} → {{word}}",
+          "tooDifferent": "Pas appris, trop différent pour un mot mal compris : {{misheard}} → {{word}}",
+          "tooLong": "Pas appris, trop long pour un mot : {{misheard}} → {{word}}",
+          "notDictated": "Pas appris, tu as modifié du texte tapé à la main : {{misheard}} → {{word}}",
+          "noWordEdit": "Modifications vues, mais aucun mot remplacé (seulement ajouts, suppressions ou ponctuation)",
+          "noEdit": "Aucune correction faite sur la dictée",
+          "unreadable": "Cette app ne laisse pas Wisprfree lire son champ de texte",
+          "pasteNotFound": "Le texte dicté n'a pas été retrouvé dans le champ",
+          "copiedNoField": "Pas de champ de texte : copié au lieu de collé",
+          "noAccessCopied": "Autorisation Accessibilité manquante : rien ne peut être surveillé"
+        }
       }
     }
   },

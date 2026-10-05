@@ -11,11 +11,17 @@
 #![cfg_attr(not(target_os = "macos"), allow(dead_code))]
 
 use crate::learning::LearnedCorrection;
+use serde::Serialize;
+use specta::Type;
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 
 /// A pasted chunk and the corrected chunk must be at least this similar to
-/// count as a misheard word rather than a rewrite.
-const MIN_SIMILARITY: f64 = 0.5;
+/// count as a misheard word rather than a rewrite. Mishearings of names and
+/// jargon are often far from the right spelling ("Clode" → "Claude"), so this
+/// stays permissive; the word-count limits below keep rewrites out.
+const MIN_SIMILARITY: f64 = 0.4;
 /// Longest chunk (in words) treated as a correction.
 const MAX_CHUNK_WORDS: usize = 4;
 const MAX_CHUNK_CHARS: usize = 60;
@@ -23,12 +29,110 @@ const MAX_CHUNK_CHARS: usize = 60;
 /// Bumped on every paste so an older watcher stops when a new dictation lands.
 static WATCH_GENERATION: AtomicU64 = AtomicU64::new(0);
 
+// ---- Diagnostic log -------------------------------------------------------
+
+const LOG_CAPACITY: usize = 60;
+
+/// One line of the auto-learn journal shown in the settings, so a user can
+/// see what was learned and, more importantly, why an edit was not.
+#[derive(Clone, Debug, Serialize, Type)]
+pub struct AutoLearnLogEntry {
+    /// Unix time in milliseconds.
+    pub at: f64,
+    /// Name of the app the dictation went to, when known.
+    pub app: Option<String>,
+    /// i18n key under `settings.learning.autoLearnLog.codes.`
+    pub code: String,
+    pub misheard: Option<String>,
+    pub word: Option<String>,
+}
+
+static LOG: Mutex<VecDeque<AutoLearnLogEntry>> = Mutex::new(VecDeque::new());
+
+pub fn log_event(code: &str, app: Option<String>, misheard: Option<&str>, word: Option<&str>) {
+    let at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as f64)
+        .unwrap_or_default();
+    log::info!("auto-learn: {} (app: {:?})", code, app);
+    if let Ok(mut log) = LOG.lock() {
+        if log.len() >= LOG_CAPACITY {
+            log.pop_front();
+        }
+        log.push_back(AutoLearnLogEntry {
+            at,
+            app,
+            code: code.to_string(),
+            misheard: misheard.map(str::to_string),
+            word: word.map(str::to_string),
+        });
+    }
+}
+
+/// Newest first.
+pub fn log_entries() -> Vec<AutoLearnLogEntry> {
+    LOG.lock()
+        .map(|log| log.iter().rev().cloned().collect())
+        .unwrap_or_default()
+}
+
+pub fn clear_log() {
+    if let Ok(mut log) = LOG.lock() {
+        log.clear();
+    }
+}
+
+/// Name of the frontmost app, for the journal.
+pub fn focused_app_name() -> Option<String> {
+    platform::focused_app_name()
+}
+
+// ---- Diffing --------------------------------------------------------------
+
 fn tokens(text: &str) -> Vec<&str> {
     text.split_whitespace().collect()
 }
 
 fn clean(token: &str) -> &str {
     token.trim_matches(|c: char| !c.is_alphanumeric() && c != '\'' && c != '-')
+}
+
+/// Text fields hand back what was pasted with small differences: non-breaking
+/// spaces, curly apostrophes, zero-width characters, `\r\n`, collapsed or
+/// doubled spaces. Compare everything in this canonical form.
+pub fn normalize(text: &str) -> String {
+    let mapped: String = text
+        .chars()
+        .filter(|c| !matches!(c, '\u{200b}' | '\u{200c}' | '\u{200d}' | '\u{feff}'))
+        .map(|c| match c {
+            '\u{2018}' | '\u{2019}' | '\u{02bc}' => '\'',
+            c if c.is_whitespace() => ' ',
+            c => c,
+        })
+        .collect();
+    mapped
+        .split(' ')
+        .filter(|w| !w.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Share of the dictated words still present in `value`. Lets the watcher
+/// tell a corrected field from one that was sent, cleared or replaced.
+pub fn dictation_overlap(pasted: &str, value: &str) -> f64 {
+    let pasted: Vec<String> = tokens(pasted)
+        .into_iter()
+        .map(|w| clean(w).to_lowercase())
+        .filter(|w| !w.is_empty())
+        .collect();
+    if pasted.is_empty() {
+        return 0.0;
+    }
+    let present: std::collections::HashSet<String> = tokens(value)
+        .into_iter()
+        .map(|w| clean(w).to_lowercase())
+        .collect();
+    pasted.iter().filter(|w| present.contains(*w)).count() as f64 / pasted.len() as f64
 }
 
 /// Word-level alignment of `old` and `new` (longest common subsequence on the
@@ -84,9 +188,29 @@ fn chunk_text(words: &[&str]) -> String {
         .join(" ")
 }
 
-/// Find the corrections the user made to `pasted` between two readings of the
-/// text field (`before` right after the paste, `after` once they are done).
-pub fn find_corrections(pasted: &str, before: &str, after: &str) -> Vec<LearnedCorrection> {
+/// What became of one edit the user made to the dictated text.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Verdict {
+    Learn,
+    /// Too many words or characters to be a misheard word.
+    TooLong,
+    /// The edited words were typed by the user, not dictated.
+    NotDictated,
+    /// The new words don't look like the old ones: a rewrite, not a fix.
+    TooDifferent,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Edit {
+    pub misheard: String,
+    pub word: String,
+    pub verdict: Verdict,
+}
+
+/// Every replacement the user made to `pasted` between two readings of the
+/// text field (`before` right after the paste, `after` once they are done),
+/// with whether it can be learned. Inputs are expected in [`normalize`]d form.
+pub fn analyze_edits(pasted: &str, before: &str, after: &str) -> Vec<Edit> {
     let pasted = pasted.trim();
     if pasted.is_empty() || before == after {
         return Vec::new();
@@ -113,50 +237,106 @@ pub fn find_corrections(pasted: &str, before: &str, after: &str) -> Vec<LearnedC
     replaced_chunks(&old_words, &new_words)
         .into_iter()
         .filter_map(|(old, new)| {
-            if old.len() > MAX_CHUNK_WORDS || new.len() > MAX_CHUNK_WORDS {
+            let misheard = chunk_text(&old);
+            let word = chunk_text(&new);
+            if misheard.is_empty() || word.is_empty() || misheard == word {
                 return None;
             }
-            if whole_field
+            let verdict = if old.len() > MAX_CHUNK_WORDS
+                || new.len() > MAX_CHUNK_WORDS
+                || word.chars().count() > MAX_CHUNK_CHARS
+            {
+                Verdict::TooLong
+            } else if whole_field
                 && !pasted_words
                     .windows(old.len())
                     .any(|w| w.iter().zip(&old).all(|(p, o)| *p == clean(o)))
             {
-                return None;
-            }
-            let misheard = chunk_text(&old);
-            let word = chunk_text(&new);
-            if misheard.is_empty()
-                || word.is_empty()
-                || misheard == word
-                || word.chars().count() > MAX_CHUNK_CHARS
-            {
-                return None;
-            }
-            let similarity = strsim::normalized_levenshtein(
+                Verdict::NotDictated
+            } else if strsim::normalized_levenshtein(
                 &misheard.to_lowercase().replace(' ', ""),
                 &word.to_lowercase().replace(' ', ""),
-            );
-            (similarity >= MIN_SIMILARITY).then_some(LearnedCorrection {
+            ) < MIN_SIMILARITY
+            {
+                Verdict::TooDifferent
+            } else {
+                Verdict::Learn
+            };
+            Some(Edit {
+                misheard,
                 word,
-                misheard: Some(misheard),
+                verdict,
             })
         })
         .collect()
 }
 
+/// The corrections worth learning among the user's edits.
+pub fn find_corrections(pasted: &str, before: &str, after: &str) -> Vec<LearnedCorrection> {
+    analyze_edits(pasted, before, after)
+        .into_iter()
+        .filter(|e| e.verdict == Verdict::Learn)
+        .map(|e| LearnedCorrection {
+            word: e.word,
+            misheard: Some(e.misheard),
+        })
+        .collect()
+}
+
+/// How watching the field after a paste ended.
+#[derive(Clone, Debug, PartialEq)]
+pub enum WatchOutcome {
+    /// The field's text can't be read through Accessibility in this app.
+    Unreadable,
+    /// The field was readable but the dictation never showed up in it.
+    PasteNotFound,
+    /// The user didn't touch the dictated text.
+    NoEdit,
+    /// Normalized field text right after the paste and once the user was done.
+    Edited { before: String, after: String },
+}
+
 /// Start watching the focused text field for corrections to `pasted`.
-/// `on_learned` runs once with whatever was learned (never with an empty list).
+/// Logs what happened and runs `on_learned` with whatever can be learned
+/// (never with an empty list).
 pub fn watch_after_paste<F>(pasted: String, on_learned: F)
 where
-    F: FnOnce(Vec<LearnedCorrection>) + Send + 'static,
+    F: FnOnce(Vec<LearnedCorrection>, Option<String>) + Send + 'static,
 {
     let generation = WATCH_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
     std::thread::spawn(move || {
         let still_current = || WATCH_GENERATION.load(Ordering::SeqCst) == generation;
-        if let Some(corrections) = platform::watch(&pasted, &still_current) {
-            if !corrections.is_empty() {
-                on_learned(corrections);
-            }
+        let app = focused_app_name();
+        let pasted = normalize(&pasted);
+        let outcome = platform::watch(&pasted, &still_current);
+        let (before, after) = match outcome {
+            WatchOutcome::Unreadable => return log_event("unreadable", app, None, None),
+            WatchOutcome::PasteNotFound => return log_event("pasteNotFound", app, None, None),
+            WatchOutcome::NoEdit => return log_event("noEdit", app, None, None),
+            WatchOutcome::Edited { before, after } => (before, after),
+        };
+        let edits = analyze_edits(&pasted, &before, &after);
+        if edits.is_empty() {
+            return log_event("noWordEdit", app, None, None);
+        }
+        let mut learned = Vec::new();
+        for edit in edits {
+            let code = match edit.verdict {
+                Verdict::Learn => {
+                    learned.push(LearnedCorrection {
+                        word: edit.word,
+                        misheard: Some(edit.misheard),
+                    });
+                    continue;
+                }
+                Verdict::TooLong => "tooLong",
+                Verdict::NotDictated => "notDictated",
+                Verdict::TooDifferent => "tooDifferent",
+            };
+            log_event(code, app.clone(), Some(&edit.misheard), Some(&edit.word));
+        }
+        if !learned.is_empty() {
+            on_learned(learned, app);
         }
     });
 }
@@ -182,8 +362,7 @@ pub fn focus_target() -> FocusTarget {
 
 #[cfg(target_os = "macos")]
 mod platform {
-    use super::{find_corrections, FocusTarget};
-    use crate::learning::LearnedCorrection;
+    use super::{dictation_overlap, normalize, FocusTarget, WatchOutcome};
     use std::ffi::c_void;
     use std::time::{Duration, Instant};
 
@@ -205,10 +384,16 @@ mod platform {
             attribute: CFStringRef,
             value: *mut CFTypeRef,
         ) -> i32;
+        fn AXUIElementSetAttributeValue(
+            element: AXUIElementRef,
+            attribute: CFStringRef,
+            value: CFTypeRef,
+        ) -> i32;
     }
 
     #[link(name = "CoreFoundation", kind = "framework")]
     extern "C" {
+        static kCFBooleanTrue: CFTypeRef;
         fn CFStringCreateWithBytes(
             alloc: CFTypeRef,
             bytes: *const u8,
@@ -248,11 +433,19 @@ mod platform {
         })
     }
 
-    fn copy_attribute(element: CFTypeRef, name: &str) -> Option<Cf> {
+    fn copy_attribute_raw(element: CFTypeRef, name: &str) -> Result<Cf, i32> {
         let attribute = cf_string(name);
         let mut value: CFTypeRef = std::ptr::null();
         let err = unsafe { AXUIElementCopyAttributeValue(element, attribute.0, &mut value) };
-        (err == 0 && !value.is_null()).then(|| Cf(value))
+        if err == 0 && !value.is_null() {
+            Ok(Cf(value))
+        } else {
+            Err(err)
+        }
+    }
+
+    fn copy_attribute(element: CFTypeRef, name: &str) -> Option<Cf> {
+        copy_attribute_raw(element, name).ok()
     }
 
     fn to_string(value: &Cf) -> Option<String> {
@@ -274,9 +467,39 @@ mod platform {
         }
     }
 
+    fn system() -> Cf {
+        Cf(unsafe { AXUIElementCreateSystemWide() })
+    }
+
     fn focused_element() -> Option<Cf> {
-        let system = Cf(unsafe { AXUIElementCreateSystemWide() });
-        copy_attribute(system.0, "AXFocusedUIElement")
+        copy_attribute(system().0, "AXFocusedUIElement")
+    }
+
+    fn focused_app() -> Option<Cf> {
+        copy_attribute(system().0, "AXFocusedApplication")
+    }
+
+    pub fn focused_app_name() -> Option<String> {
+        to_string(&copy_attribute(focused_app()?.0, "AXTitle")?)
+    }
+
+    fn set_true(element: CFTypeRef, name: &str) -> bool {
+        let attribute = cf_string(name);
+        unsafe { AXUIElementSetAttributeValue(element, attribute.0, kCFBooleanTrue) == 0 }
+    }
+
+    /// Chromium browsers and Electron apps (Slack, Notion, Discord, VS Code…)
+    /// only build their accessibility tree when they think a screen reader is
+    /// running. Until then their text fields are invisible: the focused
+    /// element is the window, and its text can't be read. Ask for the tree.
+    /// Returns whether the app accepted either request.
+    fn wake_app_accessibility() -> bool {
+        let Some(app) = focused_app() else {
+            return false;
+        };
+        let electron = set_true(app.0, "AXManualAccessibility");
+        let chromium = set_true(app.0, "AXEnhancedUserInterface");
+        electron || chromium
     }
 
     const TEXT_ROLES: [&str; 4] = ["AXTextField", "AXTextArea", "AXComboBox", "AXSearchField"];
@@ -289,24 +512,14 @@ mod platform {
         err == 0 && settable != 0
     }
 
-    pub fn focus_target() -> FocusTarget {
-        if unsafe { AXIsProcessTrusted() } == 0 {
-            return FocusTarget::NoAccess;
-        }
-        let system = Cf(unsafe { AXUIElementCreateSystemWide() });
-        let attribute = cf_string("AXFocusedUIElement");
-        let mut focused: CFTypeRef = std::ptr::null();
-        let err = unsafe { AXUIElementCopyAttributeValue(system.0, attribute.0, &mut focused) };
-        if err == AX_ERROR_API_DISABLED {
-            return FocusTarget::NoAccess;
-        }
-        if err != 0 || focused.is_null() {
+    fn classify() -> FocusTarget {
+        let element = match copy_attribute_raw(system().0, "AXFocusedUIElement") {
+            Ok(element) => element,
+            Err(AX_ERROR_API_DISABLED) => return FocusTarget::NoAccess,
             // No focused element at all: the desktop, or an app with no
             // window. Pasting there does nothing.
-            return FocusTarget::NoText;
-        }
-        let element = Cf(focused);
-
+            Err(_) => return FocusTarget::NoText,
+        };
         let role = copy_attribute(element.0, "AXRole").and_then(|r| to_string(&r));
         if role.as_deref().is_some_and(|r| TEXT_ROLES.contains(&r)) {
             return FocusTarget::Text;
@@ -314,7 +527,7 @@ mod platform {
         // Rich editors (contenteditable in browsers, Slack, Notion…) either
         // have a writable value or sit inside an editable ancestor. A plain
         // web page, window or list only exposes a selection range, which is
-        // not enough: that is what made pastes vanish into the void.
+        // not enough to take a paste.
         if is_settable(element.0, "AXValue")
             || copy_attribute(element.0, "AXEditableAncestor").is_some()
         {
@@ -323,71 +536,138 @@ mod platform {
         FocusTarget::NoText
     }
 
-    fn read_value(element: &Cf) -> Option<String> {
-        to_string(&copy_attribute(element.0, "AXValue")?)
+    pub fn focus_target() -> FocusTarget {
+        if unsafe { AXIsProcessTrusted() } == 0 {
+            return FocusTarget::NoAccess;
+        }
+        match classify() {
+            // Maybe a browser or Electron app that hasn't built its tree yet.
+            FocusTarget::NoText if wake_app_accessibility() => {
+                std::thread::sleep(Duration::from_millis(150));
+                classify()
+            }
+            target => target,
+        }
     }
 
-    const POLL: Duration = Duration::from_millis(700);
-    /// Stop once the text has not changed for this long after an edit.
-    const SETTLE: Duration = Duration::from_secs(5);
-    const MAX_WATCH: Duration = Duration::from_secs(90);
+    fn read_value(element: &Cf) -> Option<String> {
+        to_string(&copy_attribute(element.0, "AXValue")?).map(|v| normalize(&v))
+    }
 
-    pub fn watch(pasted: &str, still_current: &dyn Fn() -> bool) -> Option<Vec<LearnedCorrection>> {
-        // Give the target app time to apply the paste.
-        std::thread::sleep(Duration::from_millis(400));
-        let element = focused_element()?;
-        let before = read_value(&element)?;
-        if !before.contains(pasted.trim()) {
-            // Secure field, unsupported app, or the paste went elsewhere.
-            return None;
+    /// How long to wait for the paste to show up in the field.
+    const PASTE_LANDS_WITHIN: Duration = Duration::from_millis(2500);
+    const POLL: Duration = Duration::from_millis(500);
+    /// Stop once the text has not changed for this long after an edit.
+    const SETTLE: Duration = Duration::from_secs(10);
+    /// Give up if nothing at all is edited for this long.
+    const IDLE: Duration = Duration::from_secs(45);
+    const MAX_WATCH: Duration = Duration::from_secs(120);
+    /// A field still holding this share of the dictated words is the same
+    /// text being corrected, not a sent or cleared message.
+    const SAME_TEXT: f64 = 0.5;
+
+    pub fn watch(pasted: &str, still_current: &dyn Fn() -> bool) -> WatchOutcome {
+        // Wait for the target app to apply the paste.
+        let waiting = Instant::now();
+        let mut readable = false;
+        let mut woken = false;
+        let mut found = None;
+        while waiting.elapsed() < PASTE_LANDS_WITHIN && still_current() {
+            std::thread::sleep(Duration::from_millis(250));
+            let Some(value_and_element) =
+                focused_element().and_then(|el| read_value(&el).map(|v| (el, v)))
+            else {
+                if !woken {
+                    woken = true;
+                    wake_app_accessibility();
+                }
+                continue;
+            };
+            let (element, value) = value_and_element;
+            readable = true;
+            if value.contains(pasted) {
+                found = Some((element, value));
+                break;
+            }
         }
+        let Some((mut element, before)) = found else {
+            return if readable {
+                WatchOutcome::PasteNotFound
+            } else {
+                WatchOutcome::Unreadable
+            };
+        };
 
         let started = Instant::now();
         let mut latest = before.clone();
+        // Last text that still held the dictation. When the user fixes a word
+        // then presses Enter, the field empties: learn from what was sent.
+        let mut best = before.clone();
         let mut last_change: Option<Instant> = None;
         while started.elapsed() < MAX_WATCH && still_current() {
             std::thread::sleep(POLL);
-            // The user moved to another field or app: they are done here.
-            let same_field = focused_element()
-                .map(|now| unsafe { CFEqual(now.0, element.0) } != 0)
-                .unwrap_or(false);
-            if !same_field {
+            let Some(now) = focused_element() else {
                 break;
-            }
-            match read_value(&element) {
-                Some(value) if value != latest => {
-                    latest = value;
-                    last_change = Some(Instant::now());
-                }
-                Some(_) => {
-                    if last_change.is_some_and(|t| t.elapsed() >= SETTLE) {
-                        break;
+            };
+            let value = if unsafe { CFEqual(now.0, element.0) } != 0 {
+                read_value(&element)
+            } else {
+                // Web editors often swap the focused node while typing. Follow
+                // the focus if the new element still holds the dictation;
+                // otherwise the user moved on.
+                match read_value(&now) {
+                    Some(value) if dictation_overlap(pasted, &value) >= SAME_TEXT => {
+                        element = now;
+                        Some(value)
                     }
+                    _ => break,
                 }
-                None => break,
+            };
+            let Some(value) = value else {
+                break;
+            };
+            if value != latest {
+                latest = value;
+                last_change = Some(Instant::now());
+                if dictation_overlap(pasted, &latest) >= SAME_TEXT {
+                    best = latest.clone();
+                } else {
+                    // Sent, cleared or replaced: the edit is over.
+                    break;
+                }
+            } else {
+                match last_change {
+                    Some(t) if t.elapsed() >= SETTLE => break,
+                    None if started.elapsed() >= IDLE => break,
+                    _ => {}
+                }
             }
         }
-        if !still_current() && last_change.is_none() {
-            return None;
+        if best == before {
+            WatchOutcome::NoEdit
+        } else {
+            WatchOutcome::Edited {
+                before,
+                after: best,
+            }
         }
-        Some(find_corrections(pasted, &before, &latest))
     }
 }
 
 #[cfg(not(target_os = "macos"))]
 mod platform {
-    use super::FocusTarget;
-    use crate::learning::LearnedCorrection;
+    use super::{FocusTarget, WatchOutcome};
 
     pub fn focus_target() -> FocusTarget {
         FocusTarget::Unknown
     }
 
-    pub fn watch(
-        _pasted: &str,
-        _still_current: &dyn Fn() -> bool,
-    ) -> Option<Vec<LearnedCorrection>> {
+    pub fn focused_app_name() -> Option<String> {
         None
+    }
+
+    pub fn watch(_pasted: &str, _still_current: &dyn Fn() -> bool) -> WatchOutcome {
+        WatchOutcome::Unreadable
     }
 }
 
@@ -451,5 +731,45 @@ mod tests {
         assert!(find_corrections(pasted, &before, after)
             .iter()
             .all(|c| c.misheard.as_deref() != Some("Bonjur")));
+    }
+
+    #[test]
+    fn normalizes_what_fields_hand_back() {
+        assert_eq!(
+            normalize("l\u{2019}IA\u{a0}de  Claude\r\n\u{200b}ok"),
+            "l'IA de Claude ok"
+        );
+        let pasted = normalize("j'aime l'IA");
+        let field = normalize("Note : j\u{2019}aime l\u{2019}IA\u{a0}");
+        assert!(field.contains(&pasted));
+    }
+
+    #[test]
+    fn learns_distant_mishearings_of_names() {
+        let pasted = "demande à Clode de relire";
+        assert_eq!(
+            pairs(find_corrections(
+                pasted,
+                pasted,
+                "demande à Claude de relire"
+            )),
+            vec![("Clode".into(), "Claude".into())]
+        );
+    }
+
+    #[test]
+    fn explains_why_edits_are_not_learned() {
+        let pasted = "On se voit demain matin";
+        let edits = analyze_edits(pasted, pasted, "On se voit jeudi soir");
+        assert_eq!(edits.len(), 1);
+        assert_eq!(edits[0].verdict, Verdict::TooDifferent);
+    }
+
+    #[test]
+    fn tells_a_corrected_field_from_a_sent_one() {
+        let pasted = "Salut Tomas on se voit demain";
+        assert!(dictation_overlap(pasted, "Salut Thomas on se voit demain") >= 0.5);
+        assert!(dictation_overlap(pasted, "") < 0.5);
+        assert!(dictation_overlap(pasted, "nouveau message") < 0.5);
     }
 }

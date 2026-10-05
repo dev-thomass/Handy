@@ -345,6 +345,15 @@ async changeAutoLearnCorrectionsSetting(enabled: boolean) : Promise<Result<null,
 }
 },
 /**
+ * The auto-learn journal, newest first.
+ */
+async getAutoLearnLog() : Promise<AutoLearnLogEntry[]> {
+    return await TAURI_INVOKE("get_auto_learn_log");
+},
+async clearAutoLearnLog() : Promise<void> {
+    await TAURI_INVOKE("clear_auto_learn_log");
+},
+/**
  * Temporarily unregister all bindings while the user is recording a
  * shortcut in the UI. This avoids firing actions while keys are recorded.
  */
@@ -989,6 +998,23 @@ streamTextEvent: "stream-text-event"
  * object, so a partial store can never fail the whole load (#1619).
  * Field-level defaults below take precedence where present.
  */
+/**
+ * One line of the auto-learn journal shown in the settings, so a user can
+ * see what was learned and, more importantly, why an edit was not.
+ */
+export type AutoLearnLogEntry = { 
+/**
+ * Unix time in milliseconds.
+ */
+at: number; 
+/**
+ * Name of the app the dictation went to, when known.
+ */
+app: string | null; 
+/**
+ * i18n key under `settings.learning.autoLearnLog.codes.`
+ */
+code: string; misheard: string | null; word: string | null }
 export type AppSettings = { 
 /**
  * Internal settings schema marker for one-time migrations. Fresh installs
