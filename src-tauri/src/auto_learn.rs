@@ -25,6 +25,8 @@ const MIN_SIMILARITY: f64 = 0.4;
 /// Longest chunk (in words) treated as a correction.
 const MAX_CHUNK_WORDS: usize = 4;
 const MAX_CHUNK_CHARS: usize = 60;
+/// Longer replaced chunks are split into word-by-word corrections.
+const PHRASE_WORDS: usize = 2;
 
 /// Bumped on every paste so an older watcher stops when a new dictation lands.
 static WATCH_GENERATION: AtomicU64 = AtomicU64::new(0);
@@ -234,41 +236,127 @@ pub fn analyze_edits(pasted: &str, before: &str, after: &str) -> Vec<Edit> {
     let old_words = tokens(old_text);
     let new_words = tokens(new_text);
 
+    let judge = |old: &[&str], new: &[&str]| -> Option<Edit> {
+        let misheard = chunk_text(old);
+        let word = chunk_text(new);
+        if misheard.is_empty() || word.is_empty() || misheard == word {
+            return None;
+        }
+        let verdict = if old.len() > MAX_CHUNK_WORDS
+            || new.len() > MAX_CHUNK_WORDS
+            || word.chars().count() > MAX_CHUNK_CHARS
+        {
+            Verdict::TooLong
+        } else if whole_field
+            && !pasted_words
+                .windows(old.len())
+                .any(|w| w.iter().zip(old).all(|(p, o)| *p == clean(o)))
+        {
+            Verdict::NotDictated
+        } else if similarity(&misheard, &word) < MIN_SIMILARITY {
+            Verdict::TooDifferent
+        } else {
+            Verdict::Learn
+        };
+        Some(Edit {
+            misheard,
+            word,
+            verdict,
+        })
+    };
+
     replaced_chunks(&old_words, &new_words)
         .into_iter()
-        .filter_map(|(old, new)| {
-            let misheard = chunk_text(&old);
-            let word = chunk_text(&new);
-            if misheard.is_empty() || word.is_empty() || misheard == word {
-                return None;
-            }
-            let verdict = if old.len() > MAX_CHUNK_WORDS
-                || new.len() > MAX_CHUNK_WORDS
-                || word.chars().count() > MAX_CHUNK_CHARS
-            {
-                Verdict::TooLong
-            } else if whole_field
-                && !pasted_words
-                    .windows(old.len())
-                    .any(|w| w.iter().zip(&old).all(|(p, o)| *p == clean(o)))
-            {
-                Verdict::NotDictated
-            } else if strsim::normalized_levenshtein(
-                &misheard.to_lowercase().replace(' ', ""),
-                &word.to_lowercase().replace(' ', ""),
-            ) < MIN_SIMILARITY
-            {
-                Verdict::TooDifferent
-            } else {
-                Verdict::Learn
+        .flat_map(|(old, new)| {
+            let Some(whole) = judge(&old, &new) else {
+                return Vec::new();
             };
-            Some(Edit {
-                misheard,
-                word,
-                verdict,
-            })
+            // Half a sentence fixed in one go is one long replaced chunk:
+            // pair its words up and learn each misheard word on its own. Two
+            // words ("cloud code" → "Claude Code") stay one phrase.
+            let long = old.len() > PHRASE_WORDS || new.len() > PHRASE_WORDS;
+            if (long || whole.verdict != Verdict::Learn) && (old.len() > 1 || new.len() > 1) {
+                let parts: Vec<Edit> = pair_words(&old, &new)
+                    .into_iter()
+                    .filter_map(|(o, n)| judge(&o, &n))
+                    .collect();
+                if parts.iter().any(|e| e.verdict == Verdict::Learn) {
+                    return parts;
+                }
+            }
+            vec![whole]
         })
         .collect()
+}
+
+fn similarity(a: &str, b: &str) -> f64 {
+    strsim::normalized_levenshtein(
+        &a.to_lowercase().replace(' ', ""),
+        &b.to_lowercase().replace(' ', ""),
+    )
+}
+
+/// Align the words of a long replaced chunk with the words that replaced
+/// them, pairing each misheard word with the one that looks most like it.
+/// A word may split in two ("chatgpt" → "chat GPT") or two may merge; words
+/// with no look-alike are left out. Returns the pairs in order.
+fn pair_words<'a>(old: &[&'a str], new: &[&'a str]) -> Vec<(Vec<&'a str>, Vec<&'a str>)> {
+    let (n, m) = (old.len(), new.len());
+    // Short words ("le" → "la") look alike by chance: only pair them when
+    // the fix is about case.
+    let score = |o: &[&str], w: &[&str]| -> Option<f64> {
+        let (a, b) = (chunk_text(o), chunk_text(w));
+        let short = a.chars().count() < 3 || b.chars().count() < 3;
+        if short && a.to_lowercase() != b.to_lowercase() {
+            return None;
+        }
+        let sim = similarity(&a, &b);
+        (sim >= MIN_SIMILARITY).then_some(sim)
+    };
+    const SHAPES: [(usize, usize); 3] = [(1, 1), (1, 2), (2, 1)];
+    let mut best = vec![vec![0.0f64; m + 1]; n + 1];
+    let mut step = vec![vec![(0usize, 0usize, false); m + 1]; n + 1];
+    for i in 0..=n {
+        for j in 0..=m {
+            if i == 0 && j == 0 {
+                continue;
+            }
+            let mut choice = (0.0, (0, 0, false));
+            if i > 0 && best[i - 1][j] >= choice.0 {
+                choice = (best[i - 1][j], (1, 0, false));
+            }
+            if j > 0 && best[i][j - 1] >= choice.0 {
+                choice = (best[i][j - 1], (0, 1, false));
+            }
+            for (a, b) in SHAPES {
+                if i >= a && j >= b {
+                    if let Some(sim) = score(&old[i - a..i], &new[j - b..j]) {
+                        let total = best[i - a][j - b] + sim;
+                        if total > choice.0 {
+                            choice = (total, (a, b, true));
+                        }
+                    }
+                }
+            }
+            best[i][j] = choice.0;
+            step[i][j] = choice.1;
+        }
+    }
+    let mut pairs = Vec::new();
+    let (mut i, mut j) = (n, m);
+    while i > 0 || j > 0 {
+        let (a, b, paired) = step[i][j];
+        if a == 0 && b == 0 {
+            break;
+        }
+        if paired {
+            pairs.push((old[i - a..i].to_vec(), new[j - b..j].to_vec()));
+        }
+        i -= a;
+        j -= b;
+    }
+    pairs.reverse();
+    pairs
 }
 
 /// The corrections worth learning among the user's edits.
@@ -771,5 +859,34 @@ mod tests {
         assert!(dictation_overlap(pasted, "Salut Thomas on se voit demain") >= 0.5);
         assert!(dictation_overlap(pasted, "") < 0.5);
         assert!(dictation_overlap(pasted, "nouveau message") < 0.5);
+    }
+
+    #[test]
+    fn learns_every_word_of_a_rewritten_half_sentence() {
+        let pasted = "je pense que le projet Wisper flo et cloud code sont top";
+        let after = "je pense que le projet Wispr Flow et Claude Code sont top";
+        assert_eq!(
+            pairs(find_corrections(pasted, pasted, after)),
+            vec![
+                ("Wisper flo".into(), "Wispr Flow".into()),
+                ("cloud code".into(), "Claude Code".into()),
+            ]
+        );
+        // A longer run with no shared word in between is split word by word.
+        let pasted = "rendez-vous avec Tomas Bonardelle a Marseil demain";
+        let after = "rendez-vous avec Thomas Bonnardel à Marseille demain";
+        let found = pairs(find_corrections(pasted, pasted, after));
+        assert!(found.contains(&("Tomas".into(), "Thomas".into())));
+        assert!(found.contains(&("Bonardelle".into(), "Bonnardel".into())));
+        assert!(found.contains(&("Marseil".into(), "Marseille".into())));
+    }
+
+    #[test]
+    fn pairs_words_that_split_or_merge() {
+        let pasted = "on utilise chatgpt et la base super base aujourd'hui";
+        let after = "on utilise chat GPT et la base Supabase aujourd'hui";
+        let found = pairs(find_corrections(pasted, pasted, after));
+        assert!(found.contains(&("chatgpt".into(), "chat GPT".into())));
+        assert!(found.contains(&("super base".into(), "Supabase".into())));
     }
 }
