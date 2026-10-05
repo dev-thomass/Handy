@@ -686,6 +686,29 @@
         "noSelection": "Select the corrected word first, then press the shortcut.",
         "copyFailed": "The selection could not be read in this app.",
         "invalidSelection": "Select a single word or a short name (up to 4 words)."
+      },
+      "autoLearnLog": {
+        "title": "Learning journal",
+        "description": "What auto-learn saw after each recent dictation, and why it learned a word or not. Useful to understand a missed correction.",
+        "show": "Show",
+        "hide": "Hide",
+        "copy": "Copy",
+        "clear": "Clear",
+        "copied": "Journal copied",
+        "empty": "Nothing yet. Dictate, then fix a word in the pasted text.",
+        "codes": {
+          "learned": "Learned: {{misheard}} → {{word}}",
+          "alreadyKnown": "Already known: {{misheard}} → {{word}}",
+          "tooDifferent": "Not learned, too different to be a misheard word: {{misheard}} → {{word}}",
+          "tooLong": "Not learned, too long for a word: {{misheard}} → {{word}}",
+          "notDictated": "Not learned, you edited text you had typed: {{misheard}} → {{word}}",
+          "noWordEdit": "Edits seen, but no replaced word (only additions, deletions or punctuation)",
+          "noEdit": "No correction made to the dictation",
+          "unreadable": "This app does not let Wisprfree read its text field",
+          "pasteNotFound": "The dictated text was not found in the field",
+          "copiedNoField": "No text field: copied instead of pasted",
+          "noAccessCopied": "Accessibility permission missing: nothing can be watched"
+        }
       }
     }
   },

@@ -694,6 +694,8 @@ pub fn run(cli_args: CliArgs) {
             shortcut::update_app_prompt_rules,
             shortcut::change_auto_post_process_setting,
             shortcut::change_auto_learn_corrections_setting,
+            shortcut::get_auto_learn_log,
+            shortcut::clear_auto_learn_log,
             shortcut::suspend_all_bindings,
             shortcut::resume_all_bindings,
             shortcut::change_mute_while_recording_setting,
